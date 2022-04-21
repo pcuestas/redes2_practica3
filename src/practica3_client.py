@@ -96,11 +96,12 @@ class VideoClient(object):
 if __name__ == '__main__':
 
     vc = VideoClient("640x520")
+	
 
     # Crear aquí los threads de lectura, de recepción y,
     # en general, todo el código de inicialización que sea necesario
     # ...
-	
+
 
     # Lanza el bucle principal del GUI
     # El control ya NO vuelve de esta función, por lo que todas las
