@@ -6,6 +6,8 @@ import cv2
 import os
 import re
 
+from ds_client import DSClient
+
 class VideoClient(object):
 
     def __init__(self, window_size):
@@ -13,6 +15,8 @@ class VideoClient(object):
         # directorio de los ficheros de la aplicación
         self.APPFILES_DIR = re.sub('/\w*/\.\.','', os.path.dirname(__file__) + '/../appfiles')
         
+        #self.ds_client = DSClient(nick="pablo",password="abcd")
+
         # Creamos una variable que contenga el GUI principal
         self.app = gui("Redes2 - P2P", window_size)
         self.app.setGuiPadding(10,10)
@@ -35,6 +39,8 @@ class VideoClient(object):
         self.app.addStatusbar(fields=2)
 
     def start(self):
+        #Crear usuario
+        #self.ds_client.register()
         self.app.go()
 
     # Función que captura el frame a mostrar en cada momento
@@ -77,6 +83,7 @@ class VideoClient(object):
             # Entrada del nick del usuario a conectar    
             nick = self.app.textBox("Conexión", 
                 "Introduce el nick del usuario a buscar")    
+            
 
     def file(self, location):
         '''toma un path relativo al directorio de los ficheros de la 
