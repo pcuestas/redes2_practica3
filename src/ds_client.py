@@ -30,6 +30,8 @@ class DSClient():
 
         if response[:2] == "OK":
             return response[3:]
+        elif response[:3] == "BYE":
+            return None
         else:
             raise DSException(response[4:])
 
@@ -50,6 +52,6 @@ class DSException(P3Exception):
         self.securebox_exception_msg = msg
 
     def __str__(self) -> str:
-        return "Error during register: " + self.securebox_exception_msg
+        return "Error: " + self.securebox_exception_msg
 
 

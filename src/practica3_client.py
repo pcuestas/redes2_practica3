@@ -7,15 +7,56 @@ import os
 import re
 
 from ds_client import DSClient
+from exceptions import P3Exception
+
+class ClientApplication(object):
+    '''Clase singleton: se utiliza llamando a ClientApplication()'''
+    _instance = None
+
+    def __new__(self):
+        if not ClientApplication._instance:
+            print('Creating')
+            ClientApplication._instance = super(ClientApplication, self).__new__(self)
+            
+            # directorio de los ficheros de la aplicación
+            self.APPFILES_DIR = re.sub('/\w*/\.\.','', os.path.dirname(__file__) + '/../appfiles')
+
+            self.video_client = VideoClient("640x520", self)
+
+            # Crear aquí los threads de lectura, de recepción y,
+            # en general, todo el código de inicialización que sea necesario
+            # ...
+            self.ds_client = DSClient(nick="pablo",password="abcd")
+
+        return self._instance
+
+    #def __init__(self):
+
+        
+    
+    def start(self):
+        # crear usuario
+        self.ds_client.register()
+        # iniciar el VideoClient
+        self.video_client.start()
+
+    def quit(self):
+        print("Cerrando aplicación.")
+        # mandar quit al servidor
+        self.ds_client.quit()
+    
+    def query(self, nick):
+        print(self.ds_client.query(nick))
+
+    def file(self, location):
+        '''toma un path relativo al directorio de los ficheros de la 
+           aplicación de la forma: "/imgs/file.png" y devuelve el path completo'''
+        return self.APPFILES_DIR + location  
 
 class VideoClient(object):
 
-    def __init__(self, window_size):
-        
-        # directorio de los ficheros de la aplicación
-        self.APPFILES_DIR = re.sub('/\w*/\.\.','', os.path.dirname(__file__) + '/../appfiles')
-        
-        self.ds_client = DSClient(nick="pablo",password="abcd")
+    def __init__(self, window_size, client_application):
+        self.client_application = client_application
 
         # Creamos una variable que contenga el GUI principal
         self.app = gui("Redes2 - P2P", window_size)
@@ -23,7 +64,7 @@ class VideoClient(object):
 
         # Preparación del interfaz
         self.app.addLabel("title", "Cliente Multimedia P2P - Redes2 ")
-        self.app.addImage("video", self.file("/imgs/webcam.gif"))
+        self.app.addImage("video", ClientApplication().file("/imgs/webcam.gif"))
 
         # Registramos la función de captura de video
         # Esta misma función también sirve para enviar un vídeo
@@ -39,9 +80,6 @@ class VideoClient(object):
         self.app.addStatusbar(fields=2)
 
     def start(self):
-        #Crear usuario
-        self.ds_client.register()
-        
         self.app.go()
 
     # Función que captura el frame a mostrar en cada momento
@@ -76,33 +114,26 @@ class VideoClient(object):
                 
     # Función que gestiona los callbacks de los botones
     def buttonsCallback(self, button):
-
-        if button == "Salir":
-            # Salimos de la aplicación
-            self.app.stop()
-            self.ds_client.quit()
-        elif button == "Conectar":
-            # Entrada del nick del usuario a conectar    
-            nick = self.app.textBox("Conexión", 
-                "Introduce el nick del usuario a buscar")
-            print(self.ds_client.query(nick))
-            
-
-    def file(self, location):
-        '''toma un path relativo al directorio de los ficheros de la 
-           aplicación de la forma: "/imgs/file.png" y devuelve el path completo'''
-        return self.APPFILES_DIR + location    
+        try:
+            if button == "Salir":
+                # Salimos de la aplicación
+                self.app.stop()
+                ClientApplication().quit()
+            elif button == "Conectar":
+                # Entrada del nick del usuario a conectar    
+                nick = self.app.textBox("Conexión", 
+                    "Introduce el nick del usuario a buscar")
+                ClientApplication().query(nick)
+        except P3Exception as e:
+            print(e)
+  
 
 if __name__ == '__main__':
 
-    vc = VideoClient("640x520")
+    # Inicialización de la aplicación
+    app = ClientApplication()
 
-    # Crear aquí los threads de lectura, de recepción y,
-    # en general, todo el código de inicialización que sea necesario
-    # ...
-
-
-    # Lanza el bucle principal del GUI
+    # Lanza el bucle principal del aplicación
     # El control ya NO vuelve de esta función, por lo que todas las
     # acciones deberán ser gestionadas desde callbacks y threads
-    vc.start()
+    app.start()
