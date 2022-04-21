@@ -1,6 +1,6 @@
 
-from re import S
 import socket
+from exceptions import P3Exception
 
 
 class DSClient():
@@ -18,20 +18,38 @@ class DSClient():
         self.nick = nick
         self.ip_address = ip_address
         self.port = port
-        self.password = password 
+        self.password = password
         self.protocol = protocol
-
-    def register(self, ):
-        resp=self.send(" ".join(["REGISTER", self.nick, self.ip_address, self.port, self.password, self.protocol]))
-        print(resp)
         
     def send(self, msg: str) -> str:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect((self.server_name,self.server_port))
+
         client_socket.send(msg.encode(encoding="utf-8"))
-        return client_socket.recv(1024).decode(encoding="utf-8")
+        response = client_socket.recv(1024).decode(encoding="utf-8")
+
+        if response[:2] == "OK":
+            return response[3:]
+        else:
+            raise DSException(response[4:])
+
+    def register(self, ):
+        resp = self.send(" ".join(["REGISTER", self.nick, self.ip_address, self.port, self.password, self.protocol]))
         
+    def query(self,nick):
+        resp = self.send(" ".join(["QUERY", nick]))
+        return resp.split(' ')[1:]
+        
+        
+    def quit(self):
+        self.send("QUIT")
 
+class DSException(P3Exception):
+    def __init__(self, msg=None):
+        super().__init__()
+        self.securebox_exception_msg = msg
 
+    def __str__(self) -> str:
+        return "Error during register: " + self.securebox_exception_msg
 
 

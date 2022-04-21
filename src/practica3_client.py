@@ -15,7 +15,7 @@ class VideoClient(object):
         # directorio de los ficheros de la aplicación
         self.APPFILES_DIR = re.sub('/\w*/\.\.','', os.path.dirname(__file__) + '/../appfiles')
         
-        #self.ds_client = DSClient(nick="pablo",password="abcd")
+        self.ds_client = DSClient(nick="pablo",password="abcd")
 
         # Creamos una variable que contenga el GUI principal
         self.app = gui("Redes2 - P2P", window_size)
@@ -40,7 +40,8 @@ class VideoClient(object):
 
     def start(self):
         #Crear usuario
-        #self.ds_client.register()
+        self.ds_client.register()
+        
         self.app.go()
 
     # Función que captura el frame a mostrar en cada momento
@@ -79,10 +80,12 @@ class VideoClient(object):
         if button == "Salir":
             # Salimos de la aplicación
             self.app.stop()
+            self.ds_client.quit()
         elif button == "Conectar":
             # Entrada del nick del usuario a conectar    
             nick = self.app.textBox("Conexión", 
-                "Introduce el nick del usuario a buscar")    
+                "Introduce el nick del usuario a buscar")
+            print(self.ds_client.query(nick))
             
 
     def file(self, location):
@@ -97,7 +100,7 @@ if __name__ == '__main__':
     # Crear aquí los threads de lectura, de recepción y,
     # en general, todo el código de inicialización que sea necesario
     # ...
-
+	
 
     # Lanza el bucle principal del GUI
     # El control ya NO vuelve de esta función, por lo que todas las
