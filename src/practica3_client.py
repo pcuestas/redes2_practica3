@@ -8,6 +8,7 @@ import re
 
 from ds_client import DSClient
 from exceptions import P3Exception
+from listener import *
 
 class ClientApplication(object):
     '''Clase singleton: se utiliza llamando a ClientApplication()'''
@@ -27,7 +28,8 @@ class ClientApplication(object):
             # en general, todo el código de inicialización que sea necesario
             # ...
             self.ds_client = DSClient(nick="pablo",password="abcd")
-
+            self.listener_thread = ListenerThread(self.video_client)
+            self.listener_thread.setDaemon(True)
         return self._instance
 
     #def __init__(self):
@@ -38,7 +40,12 @@ class ClientApplication(object):
         # crear usuario
         self.ds_client.register()
         # iniciar el VideoClient
+
+        #Inicia el hilo que escucha peticiones
+        self.listener_thread.start()
+
         self.video_client.start()
+
 
     def quit(self):
         print("Cerrando aplicación.")

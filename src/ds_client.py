@@ -1,4 +1,5 @@
 
+from ipaddress import ip_address
 import socket
 from exceptions import P3Exception
 
@@ -9,8 +10,8 @@ class DSClient():
         self, 
         nick, 
         password,
-        ip_address=socket.gethostbyname(socket.gethostname()), 
-        port="11000", 
+        ip_address=socket.gethostbyname(socket.gethostname()),
+        port="12000", 
         protocol="V0",
     ):
         self.server_port = 8000
@@ -36,8 +37,10 @@ class DSClient():
             raise DSException(response[4:])
 
     def register(self, ):
+        print("Me registro con ip {}".format(self.ip_address))
         resp = self.send(" ".join(["REGISTER", self.nick, self.ip_address, self.port, self.password, self.protocol]))
-        
+        print(resp)
+
     def query(self,nick):
         resp = self.send(" ".join(["QUERY", nick]))
         return resp.split(' ')[1:]
