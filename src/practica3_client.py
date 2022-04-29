@@ -3,14 +3,15 @@ from appJar import gui
 from PIL import Image, ImageTk
 from call_manager import CallManager
 import cv2
-import os
-import re
+import os 
+import re 
 
 import listener
 from ds_client import DSClient, DSException
 from exceptions import P3Exception
 from call_manager import User
 from util import *
+
 
 class ClientApplication(object):
     '''Clase singleton: se utiliza llamando a self.client_app'''
