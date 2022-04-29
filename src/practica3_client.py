@@ -1,62 +1,228 @@
 # import the library
 from appJar import gui
 from PIL import Image, ImageTk
-import numpy as np
+from call_manager import CallManager
 import cv2
 import os
 import re
 
-from ds_client import DSClient
+import listener
+from ds_client import DSClient, DSException
 from exceptions import P3Exception
+from call_manager import User
+from util import *
 
 class ClientApplication(object):
-    '''Clase singleton: se utiliza llamando a ClientApplication()'''
+    '''Clase singleton: se utiliza llamando a self.client_app'''
     _instance = None
 
     def __new__(self):
-        if not ClientApplication._instance:
+        if not self._instance:
             print('Creating')
-            ClientApplication._instance = super(ClientApplication, self).__new__(self)
+            self._instance = super(
+                ClientApplication, self).__new__(self)
+
+            # quitar ?
+            self._udp_port = 11000
+            self._tcp_port = 11001
+
+            #nick del usuario con el que se está interaccionando
+            #(estar en llamada 0 esperar que acepte llamada)
+            self.peer = None
+            self.peer_nick = None
+            self.peer_tcp_port = None
+
+            #Flags que indican si se está esperando llamada o en llamada 
+            self._waiting_call_response = False
+            self._in_call = False
+
             
             # directorio de los ficheros de la aplicación
-            self.APPFILES_DIR = re.sub('/\w*/\.\.','', os.path.dirname(__file__) + '/../appfiles')
+            self.APPFILES_DIR = re.sub(
+                '/\w*/\.\.', '', os.path.dirname(__file__) + '/../appfiles')
 
-            self.video_client = VideoClient("640x520", self)
+            self.video_client = VideoClient("640x520", self._instance)
 
             # Crear aquí los threads de lectura, de recepción y,
             # en general, todo el código de inicialización que sea necesario
             # ...
-            self.ds_client = DSClient(nick="pablo",password="abcd")
+            self.ds_client = DSClient(self._instance)
+            self.listener_thread = listener.ListenerThread(
+                self._instance,
+                self.video_client
+            )
+
+            #Para que se cierre la app
+            self.listener_thread.setDaemon(True)
+            self.call_manager = CallManager(self._instance)
 
         return self._instance
 
-    #def __init__(self):
-
-        
-    
     def start(self):
-        # crear usuario
-        self.ds_client.register()
-        # iniciar el VideoClient
-        self.video_client.start()
+        # quitar estas líneas:
+        self.ds_client.nick = 'pablo'
+        self.ds_client.password = 'abcd'
+
+        # pedir al usuario puertos y nick/password
+        if not self.request_ports() or not self.request_nick_password_and_register():
+            self.video_client.app.infoBox("Info", "Cerrando aplicación")
+            return 
+
+        # pregunta si quiere webcam
+        capture_flag = self.video_client.app.yesNoBox("WebCam", "¿Usar cámara?")
+        
+        #Inicia el hilo que escucha peticiones
+        self.listener_thread.start()
+
+        # iniciar el VideoClient - la ejecución se queda 
+        # aquí hasta que se salga del video client
+        self.video_client.app.setLabel("title",f"{self.ds_client.nick} - Cliente Multimedia P2P ")
+        self.video_client.start(capture_flag)
+    
+    def request_ports(self):
+        while True:
+            tcpp = self.request_to_user("Introduce el puerto tcp")
+            if not tcpp: return False
+            tcpp = int(tcpp)
+            if not valid_port(tcpp):
+                self.video_client.app.infoBox("Cuidado", "El puerto debe ser mayor que 1024")
+            else:
+                break
+        
+        while True:
+            udpp = self.request_to_user("Introduce el puerto udp") 
+            if not udpp: return False
+            udpp = int(udpp)
+            if not valid_port(udpp):
+                self.video_client.app.infoBox("Cuidado", "El puerto debe ser mayor que 1024 y menor que 655364")
+            else:
+                break
+            
+        self._tcp_port = tcpp 
+        self._udp_port = udpp
+        
+        # puertos leídos correctamente
+        return True
+    
+
+    def request_nick_password_and_register(self):
+        while True:
+            if not self.request_nick_password():
+                # user closes the nick/password window
+                return False
+
+            try:
+                # registrar usuario
+                self.ds_client.register()
+                break
+            except DSException as e:
+                self.video_client.app.infoBox("Error", str(e))
+        # correctly registered
+        return True
+
+    def request_to_user(self, msg):
+        '''pide un valor al usuario en forma de texto, 
+        devuelve None en caso de que el usuario no introduzca nada'''
+        val = self.video_client.app.textBox(
+            "ApplicationClient", msg)
+        if not val:
+            return None
+        return val
+
+    def request_nick_password(self):
+        nick = self.request_to_user("Introduce tu nick de sesión")
+        if not nick:
+            return False
+
+        password = self.request_to_user("Introduce tu contraseña")
+        if not password:
+            return False
+
+        self.ds_client.nick = nick 
+        self.ds_client.password = password
+
+        return True
+
 
     def quit(self):
         print("Cerrando aplicación.")
+
+        self.video_client.stop()
         # mandar quit al servidor
         self.ds_client.quit()
+
+        # cerrar aquí todos los hilos...
     
-    def query(self, nick):
-        print(self.ds_client.query(nick))
+    def in_call(self):
+        return self._in_call
+    
+    def waiting_call_response(self):
+        return self._waiting_call_response
+
+    def init_call(self, peer:User):
+
+        #Esto ya se comprueba en process control command
+        if self._in_call:
+            return 
+
+        self._waiting_call_response=False
+        self._in_call = True
+
+        self.peer = peer
+        
+        self.video_client.app.showSubWindow("CallWindow")
+        self.call_manager.init_call(peer)
+
+    def end_call(self):
+        self.video_client.app.hideSubWindow("CallWindow")
+        self.call_manager.end_call()
+        self.peer = None
+        self.peer_nick=None
+        self._in_call=False
 
     def file(self, location):
         '''toma un path relativo al directorio de los ficheros de la 
            aplicación de la forma: "/imgs/file.png" y devuelve el path completo'''
-        return self.APPFILES_DIR + location  
+        return self.APPFILES_DIR + location
+
+    def send_web_cam(self, img):
+        if self.in_call():
+            self.call_manager.send_data(img) 
+
+    def connect(self):
+        # Entrada del nick del usuario a conectar    
+        nick = self.video_client.app.textBox("Conexión", 
+            "Introduce el nick del usuario a buscar")
+        
+        if not nick: return
+        
+        nick, ipaddr, tcp_port, protocol = self.ds_client.query(nick)
+
+        if self.video_client.app.yesNoBox("Llamar", f"Usuario encontrado, ¿quieres llamar a {nick}?"):
+            self._waiting_call_response=True
+            self.peer_nick=nick
+            TCP.send(f"CALLING {self.ds_client.nick} {self._udp_port}",ipaddr,int(tcp_port))
+
+    def register_as_new_user(self):
+        if self.video_client.app.questionBox(
+            title="Registrar nuevo usuario",
+            message=f"¿Cerrar sesión con el usuario actual: {self.ds_client.nick}?"
+        ):
+            if not self.request_nick_password_and_register():
+                self.video_client.app.infoBox("Info", "Cerrando aplicación, es necesario tener un usuario registrado")
+                self.client_app.quit()
+            
+    def list_of_users(self):
+        users = self.ds_client.list_users()
+        print(users,'\n', len(users))
+        return 
+        self.video_client.display_users_list() #########################################################
+
 
 class VideoClient(object):
 
     def __init__(self, window_size, client_application):
-        self.client_application = client_application
+        self.client_app = client_application
 
         # Creamos una variable que contenga el GUI principal
         self.app = gui("Redes2 - P2P", window_size)
@@ -64,38 +230,69 @@ class VideoClient(object):
 
         # Preparación del interfaz
         self.app.addLabel("title", "Cliente Multimedia P2P - Redes2 ")
-        self.app.addImage("video", ClientApplication().file("/imgs/webcam.gif"))
+        self.app.addImage("video", self.client_app.file("/imgs/webcam.gif"))
 
+        self.cap = None
+
+    def configure_call_window(self):
+        self.app.startSubWindow("CallWindow", modal=True)
+        self.app.setSize(1200,800)
+        self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
+        self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
+        self.app.setImageSize("inc_video",800,600)
+        self.app.addButtons(["Colgar llamada"],self.buttonsCallback)
+        self.app.stopSubWindow()
+
+    def start(self, capture_flag):
+        self.config_capture_video(capture_flag)
+        self.app.go()
+
+    def config_capture_video(self, capture_flag):
         # Registramos la función de captura de video
         # Esta misma función también sirve para enviar un vídeo
-        self.cap = cv2.VideoCapture(0)
+        
+        if capture_flag:
+            print("Voy a usar camara")
+            self.cap = cv2.VideoCapture(0)
+        else:
+            print("Voy a usar video")
+            self.cap = cv2.VideoCapture(self.client_app.file("/imgs/webcam.gif"))
+            
         self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
 
         # Añadir los botones
-        self.app.addButtons(["Conectar", "Colgar", "Salir"], self.buttonsCallback)
+        self.app.addButtons(
+            ["Conectar", "Lista de usuarios", "Registrar con otro usuario", "Salir"], 
+            self.buttonsCallback
+        )
         
+
+        self.configure_call_window()
         # Barra de estado
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
         self.app.addStatusbar(fields=2)
-
-    def start(self):
-        self.app.go()
 
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
         
         # Capturamos un frame de la cámara o del vídeo
         ret, frame = self.cap.read()
-        frame = cv2.resize(frame, (640,480))
-        cv2_im = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-        img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))            
+        
+        frame = cv2.resize(frame, (640, 480))
+        cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
 
         # Lo mostramos en el GUI
-        self.app.setImageData("video", img_tk, fmt = 'PhotoImage')
+        self.app.setImageData("video", img_tk, fmt='PhotoImage')
 
         # Aquí tendría que el código que envia el frame a la red
-        # ...
+        if self.client_app.in_call():
+            encode_param = [cv2.IMWRITE_JPEG_QUALITY, 50]
+            result, encimg = cv2.imencode('.jpg', frame, encode_param)
+            if not result:
+                print('Error al codificar imagen')
+            self.client_app.send_web_cam(encimg.tobytes())
 
     # Establece la resolución de la imagen capturada
     def setImageResolution(self, resolution):        
@@ -117,16 +314,24 @@ class VideoClient(object):
         try:
             if button == "Salir":
                 # Salimos de la aplicación
-                self.app.stop()
-                ClientApplication().quit()
+                self.client_app.quit()
+
             elif button == "Conectar":
-                # Entrada del nick del usuario a conectar    
-                nick = self.app.textBox("Conexión", 
-                    "Introduce el nick del usuario a buscar")
-                ClientApplication().query(nick)
+                self.client_app.connect()
+
+            elif button == "Registrar con otro usuario":
+                self.client_app.register_as_new_user()
+            
+            elif button == "Lista de usuarios":
+                self.client_app.list_of_users()
+
+            elif button =="Colgar llamada":
+                self.client_app.end_call()
         except P3Exception as e:
-            print(e)
-  
+            self.app.infoBox("Error", e)
+    
+    def stop(self):
+        self.app.stop()
 
 if __name__ == '__main__':
 
