@@ -27,9 +27,10 @@ class TCP():
 
     def create_socket_and_send(msg:str, ip, tcp_port):
         print(f"ip {ip} y puerto {tcp_port} con tipos {type(ip)} y {type(tcp_port)}")
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ip, int(tcp_port)))
-        TCP.create_socket_and_send(msg, sock)
+        TCP.send(msg, sock)
         sock.close()
 
     def send(msg:str, sock):        
@@ -38,18 +39,21 @@ class TCP():
         except OSError as e:
             raise SocketError(e)
             
-    def recvall(sock):
+    def recvall(sock, timeout_seconds=1.0):
         BUFF_SIZE = 4096 # 4 KiB
         data = b''
+
         total_size_read = 0
-        sock.settimeout(1)
+
         try:
-            while True:
+            if timeout_seconds: 
+                sock.settimeout(timeout_seconds)
+            read = 1
+            while read:
                 part = sock.recv(BUFF_SIZE)
                 data += part
-                if len(part) == 0:
-                    break
-                total_size_read += len(part)
+                read = len(part)
+                total_size_read += read
         except socket.error:
             pass
         

@@ -32,7 +32,7 @@ class ClientApplication(object):
             self.APPFILES_DIR = re.sub(
                 '/\w*/\.\.', '', os.path.dirname(__file__) + '/../appfiles')
 
-            self.video_client = VideoClient("640x520", self._instance)
+            self.video_client = VideoClient(self._instance)
 
             # Crear aquí los threads de lectura, de recepción y,
             # en general, todo el código de inicialización que sea necesario
@@ -55,9 +55,7 @@ class ClientApplication(object):
         self.ds_client.password = 'abcd'
 
         # pedir al usuario puertos y nick/password
-        if not self.request_nick_password_and_register():
-            # not self.request_ports() or \
-            
+        if not self.request_ports() or not self.request_nick_password_and_register():
             self.video_client.app.infoBox("Info", "Cerrando aplicación")
             return 
 
@@ -144,12 +142,11 @@ class ClientApplication(object):
 
         # cerrar aquí todos los hilos...
 
-    def init_call(self, peer:User):
+    def init_call_window(self):
         self.video_client.app.showSubWindow("CallWindow")
 
-    def end_call(self):
+    def end_call_window(self):
         self.video_client.app.hideSubWindow("CallWindow")
-        self.call_manager.end_call()
 
     def file(self, location):
         '''toma un path relativo al directorio de los ficheros de la 
@@ -167,7 +164,7 @@ class ClientApplication(object):
         nick, ipaddr, tcp_port, protocol = self.ds_client.query(nick)
 
         if self.video_client.app.yesNoBox("Llamar", f"Usuario encontrado, ¿quieres llamar a {nick}?"):
-            user = User(nick, ipaddr, None, tcp_port)
+            user = User(nick, ipaddr, None, int(tcp_port))
             self.call_manager.call(user)
     
     def register_with_new_user(self):
@@ -189,7 +186,7 @@ class ClientApplication(object):
 
 class VideoClient(object):
 
-    def __init__(self, window_size, client_application):
+    def __init__(self, client_application, window_size="640x720"):
         self.client_app = client_application
 
         # Creamos una variable que contenga el GUI principal
@@ -199,12 +196,12 @@ class VideoClient(object):
         # Preparación del interfaz
         self.app.addLabel("title", "Cliente Multimedia P2P - Redes2 ")
         self.app.addImage("video", self.client_app.file("/imgs/webcam.gif"))
+        self.app.setImageSize("video", 640, 640)
 
         self.cap = None
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
-        self.app.setSize(800,800)
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
         self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
         self.app.setImageSize("inc_video",800,600)
@@ -213,9 +210,7 @@ class VideoClient(object):
 
     def configure_list_users_window(self):
         self.app.startSubWindow("ListUsers", modal=True)
-        self.app.setSize(800,800)
         self.app.addTable("ListUsersTable",[[1]])
-        self.app.setSize(1000,900)
         self.app.addButtons(["Cerrar"], self.buttonsCallbackListUsers)
         self.app.stopSubWindow()
                     
@@ -236,7 +231,7 @@ class VideoClient(object):
                 self.client_app.list_of_users()
 
             elif button =="Colgar llamada":
-                self.client_app.end_call()
+                self.client_app.call_manager.end_call()
         except P3Exception as e:
             self.app.infoBox("Error", e)
 
@@ -296,7 +291,7 @@ class VideoClient(object):
             result, encimg = cv2.imencode('.jpg', frame, encode_param)
             if not result:
                 print('Error al codificar imagen')
-            self.client_app.call_manager.send_data(encimg.tobytes())
+            self.client_app.call_manager.send_datagram(encimg.tobytes())
 
     # Establece la resolución de la imagen capturada
     def setImageResolution(self, resolution):        
