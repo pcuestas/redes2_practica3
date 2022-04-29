@@ -27,16 +27,6 @@ class ClientApplication(object):
             self._udp_port = 11000
             self._tcp_port = 11001
 
-            #nick del usuario con el que se está interaccionando
-            #(estar en llamada 0 esperar que acepte llamada)
-            self.peer = None
-            self.peer_nick = None
-            self.peer_tcp_port = None
-
-            #Flags que indican si se está esperando llamada o en llamada 
-            self._waiting_call_response = False
-            self._in_call = False
-
             
             # directorio de los ficheros de la aplicación
             self.APPFILES_DIR = re.sub(
@@ -104,7 +94,6 @@ class ClientApplication(object):
         
         # puertos leídos correctamente
         return True
-    
 
     def request_nick_password_and_register(self):
         while True:
@@ -154,33 +143,13 @@ class ClientApplication(object):
         self.ds_client.quit()
 
         # cerrar aquí todos los hilos...
-    
-    def in_call(self):
-        return self._in_call
-    
-    def waiting_call_response(self):
-        return self._waiting_call_response
 
     def init_call(self, peer:User):
-
-        #Esto ya se comprueba en process control command
-        if self._in_call:
-            return 
-
-        self._waiting_call_response=False
-        self._in_call = True
-
-        self.peer = peer
-        
         self.video_client.app.showSubWindow("CallWindow")
-        self.call_manager.init_call(peer)
 
     def end_call(self):
         self.video_client.app.hideSubWindow("CallWindow")
         self.call_manager.end_call()
-        self.peer = None
-        self.peer_nick=None
-        self._in_call=False
 
     def file(self, location):
         '''toma un path relativo al directorio de los ficheros de la 
@@ -201,11 +170,10 @@ class ClientApplication(object):
         nick, ipaddr, tcp_port, protocol = self.ds_client.query(nick)
 
         if self.video_client.app.yesNoBox("Llamar", f"Usuario encontrado, ¿quieres llamar a {nick}?"):
-            self._waiting_call_response=True
-            self.peer_nick=nick
-            TCP.send(f"CALLING {self.ds_client.nick} {self._udp_port}",ipaddr,int(tcp_port))
-
-    def register_as_new_user(self):
+            user = User(nick, ipaddr, None, tcp_port)
+            self.call_manager.call(user)
+    
+    def register_with_new_user(self):
         if self.video_client.app.questionBox(
             title="Registrar nuevo usuario",
             message=f"¿Cerrar sesión con el usuario actual: {self.ds_client.nick}?"
@@ -219,6 +187,8 @@ class ClientApplication(object):
         print(users,'\n', len(users))
         return 
         self.video_client.display_users_list() #########################################################
+
+    
 
 
 class VideoClient(object):

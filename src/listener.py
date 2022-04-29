@@ -1,7 +1,7 @@
 from http import client
 from multiprocessing import connection
 import threading
-from socket import *
+import socket
 from call_manager import User
 
 from exceptions import P3Exception
@@ -23,20 +23,16 @@ class ListenerThread(threading.Thread):
         self.video_client=video_client
 
     def run(self):
-
-        serverSocket = socket(AF_INET, SOCK_STREAM)
-        serverSocket.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
-        serverSocket.bind(('', self.client_app._tcp_port))
-        serverSocket.listen(1)
+        server_socket = TCP.server_socket(self.client_app._tcp_port, max_connections=10)
 
         print(f"Listener esperando en el puerto: {self.client_app._tcp_port}")
 
         while 1:
             ##addr es tupla ()
-            connection_socket, addr = serverSocket.accept()
+            connection_socket, addr = server_socket.accept()
             
             petition = TCP.recvall(connection_socket).decode(encoding="utf-8")
-            self.process_control_message(petition, connection_socket,addr[0])
+            self.process_control_message(petition, connection_socket, addr[0])
             connection_socket.close() 
 
     def process_control_message(self, petition, connection_socket, addr):
@@ -47,63 +43,36 @@ class ListenerThread(threading.Thread):
 
         try: 
             msg, nick, udp_port = petition_list
+
+            if msg == "CALLING":
+                self.client_app.call_manager.receive_call(addr, connection_socket, nick, udp_port)
+            elif msg == "CALL_ACCEPTED":
+                self.client_app.call_manager.call_accepted(nick, udp_port)
         except ValueError:
             try:
                 msg, nick = petition_list
+                if msg == "CALL_DENIED":
+                    self.client_app.call_manager.receive_call_denied(nick)
+                elif msg == "CALL_END":
+                    self.client_app.call_manager.receive_call_end(nick)
+                elif msg == "CALL_HOLD":
+                    self.client_app.call_manager.receive_call_hold(nick)
+                elif msg == "CALL_RESUME":
+                    self.client_app.call_manager.receive_call_resume(nick)
             except ValueError:
                 msg = petition_list[0]
-            
-        udp_port=None
-
-        nick, nick_addr, tcp_port, protocol= self.client_app.ds_client.query(nick)
-            
-        if msg =="CALLING" or msg=="CALL_ACCEPTED":
-            peer = User(nick, nick_addr, udp_port, tcp_port)
-
-        #if self.client_app.in_call() or self.client_app.awaiting_call():
-            #self.reject_call(addr,tcp_port)
-        
-        if self.client_app.in_call() or True:
-            #Procesar solo call_end, call_pause...
-
-            if msg=="CALL_END":
-                self.client_app.end_call()
-
-        if self.client_app.waiting_call_response() or True:
-            #Procesar solo call denied & call accepted
-
-            if msg=="CALL_ACCEPTED":
-                if not self.check_control_message(nick,addr,nick_addr):
-                    print("Falla la comprobacion de mensaje")
-                    return 
-                print("Me han aceptado la llamada")
-                self.client_app.init_call(peer)
-
-            elif msg=="CALL_DENIED":
-                self.client_app._waiting_call_response=False
-                self.client_app.peer_nick=None
-
-        if msg=="CALLING" and self.client_app.video_client.app.questionBox(
-            title=f"Llamada entrante de {nick}",
-            message="¿Aceptar llamada?"
-        ):
-            self.accept_call(addr,tcp_port)
-            self.client_app.init_call(peer)
-
-        #falta msg=="CALL_BUSY"
-        
-        else:
-            self.reject_call(addr,tcp_port)
+                if msg == "CALL_BUSY":
+                    self.client_app.call_manager.receive_call_busy()
 
     def accept_call(self,ipaddr,tcp_port):
         print("Mando mensaje de accept")
-        TCP.send(f"{self.ACCEPT_MSG} {self.client_app.ds_client.nick} {self.client_app._udp_port}",ipaddr,tcp_port)
+        TCP.create_socket_and_send(f"{self.ACCEPT_MSG} {self.client_app.ds_client.nick} {self.client_app._udp_port}",ipaddr,tcp_port)
 
     def reject_call_busy(self, ipaddr,tcp_port):
-        TCP.send(self.BUSY_MSG,ipaddr,tcp_port)
+        TCP.create_socket_and_send(self.BUSY_MSG,ipaddr,tcp_port)
 
     def reject_call(self, ipaddr,tcp_port):
-        TCP.send(self.BUSY_MSG,ipaddr,tcp_port)
+        TCP.create_socket_and_send(self.BUSY_MSG,ipaddr,tcp_port)
 
     def check_ip(self,nick,addr):
         return self.client_app.ds_client.query(nick)[1]==str(addr) 
