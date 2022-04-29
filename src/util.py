@@ -41,11 +41,20 @@ class TCP():
     def recvall(sock):
         BUFF_SIZE = 4096 # 4 KiB
         data = b''
-        while True:
-            part = sock.recv(BUFF_SIZE)
-            data += part
-            if len(part) < BUFF_SIZE:
-                break
+        total_size_read = 0
+        sock.settimeout(1)
+        try:
+            while True:
+                part = sock.recv(BUFF_SIZE)
+                data += part
+                if len(part) == 0:
+                    break
+                total_size_read += len(part)
+        except socket.error:
+            pass
+        
+        sock.settimeout(None)
+        print(f"Leído: {total_size_read}")
         return data
 
 class CircularBuffer():

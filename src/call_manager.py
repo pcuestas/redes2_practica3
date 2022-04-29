@@ -105,34 +105,26 @@ class CallManager(object):
 
     def waiting_call_response(self):
         self._in_call_mutex.acquire()
-        try:
-            val = True==self._waiting_call_response 
-        finally:
-            self._in_call_mutex.release()
+        val = True == self._waiting_call_response
+        self._in_call_mutex.release()
         return val
 
     def set_in_call(self, val):
         self._in_call_mutex.acquire()
-        try:
-            self._in_call = val 
-        finally:
-            self._in_call_mutex.release()
+        self._in_call = val
+        self._in_call_mutex.release()
 
     def in_call(self):
         self._in_call_mutex.acquire()
-        try:
-            val = True==self._in_call 
-        finally:
-            self._in_call_mutex.release()
+        val = True == self._in_call
+        self._in_call_mutex.release()
         return val
-    
+
     def set_peer(self, peer):
         self._in_call_mutex.acquire()
-        try:
-            self._peer = peer 
-        finally:
-            self._in_call_mutex.release()
-    
+        self._peer = peer
+        self._in_call_mutex.release()
+
     def peer(self):
         return self._peer
        

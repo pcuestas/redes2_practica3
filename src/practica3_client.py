@@ -55,7 +55,9 @@ class ClientApplication(object):
         self.ds_client.password = 'abcd'
 
         # pedir al usuario puertos y nick/password
-        if not self.request_ports() or not self.request_nick_password_and_register():
+        if not self.request_nick_password_and_register():
+            # not self.request_ports() or \
+            
             self.video_client.app.infoBox("Info", "Cerrando aplicación")
             return 
 
@@ -133,8 +135,6 @@ class ClientApplication(object):
 
         return True
 
-
-
     def quit(self):
         print("Cerrando aplicación.")
 
@@ -156,9 +156,6 @@ class ClientApplication(object):
            aplicación de la forma: "/imgs/file.png" y devuelve el path completo'''
         return self.APPFILES_DIR + location
 
-    def send_web_cam(self, img):
-        if self.in_call():
-            self.call_manager.send_data(img) 
 
     def connect(self):
         # Entrada del nick del usuario a conectar    
@@ -184,9 +181,8 @@ class ClientApplication(object):
             
     def list_of_users(self):
         users = self.ds_client.list_users()
-        print(users,'\n', len(users))
-        return 
-        self.video_client.display_users_list() #########################################################
+        print("número de usuarios leídos:",len(users))
+        self.video_client.display_users_list(users) #########################################################
 
     
 
@@ -208,12 +204,48 @@ class VideoClient(object):
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
-        self.app.setSize(1200,800)
+        self.app.setSize(800,800)
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
         self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
         self.app.setImageSize("inc_video",800,600)
         self.app.addButtons(["Colgar llamada"],self.buttonsCallback)
         self.app.stopSubWindow()
+
+    def configure_list_users_window(self):
+        self.app.startSubWindow("ListUsers", modal=True)
+        self.app.setSize(800,800)
+        self.app.addTable("ListUsersTable",[[1]])
+        self.app.setSize(1000,900)
+        self.app.addButtons(["Cerrar"], self.buttonsCallbackListUsers)
+        self.app.stopSubWindow()
+                    
+    # Función que gestiona los callbacks de los botones
+    def buttonsCallback(self, button):
+        try:
+            if button == "Salir":
+                # Salimos de la aplicación
+                self.client_app.quit()
+
+            elif button == "Conectar":
+                self.client_app.connect()
+
+            elif button == "Registrar con otro usuario":
+                self.client_app.register_as_new_user()
+            
+            elif button == "Lista de usuarios":
+                self.client_app.list_of_users()
+
+            elif button =="Colgar llamada":
+                self.client_app.end_call()
+        except P3Exception as e:
+            self.app.infoBox("Error", e)
+
+    def buttonsCallbackListUsers(self, button):
+        try: 
+            if button == "Cerrar":
+                self.app.hideSubWindow("ListUsers")
+        except P3Exception as e:
+            self.app.infoBox("Error", e)
 
     def start(self, capture_flag):
         self.config_capture_video(capture_flag)
@@ -237,10 +269,10 @@ class VideoClient(object):
         self.app.addButtons(
             ["Conectar", "Lista de usuarios", "Registrar con otro usuario", "Salir"], 
             self.buttonsCallback
-        )
-        
+        )        
 
         self.configure_call_window()
+        self.configure_list_users_window()
         # Barra de estado
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
         self.app.addStatusbar(fields=2)
@@ -259,12 +291,12 @@ class VideoClient(object):
         self.app.setImageData("video", img_tk, fmt='PhotoImage')
 
         # Aquí tendría que el código que envia el frame a la red
-        if self.client_app.in_call():
+        if self.client_app.call_manager.in_call():
             encode_param = [cv2.IMWRITE_JPEG_QUALITY, 50]
             result, encimg = cv2.imencode('.jpg', frame, encode_param)
             if not result:
                 print('Error al codificar imagen')
-            self.client_app.send_web_cam(encimg.tobytes())
+            self.client_app.call_manager.send_data(encimg.tobytes())
 
     # Establece la resolución de la imagen capturada
     def setImageResolution(self, resolution):        
@@ -280,28 +312,15 @@ class VideoClient(object):
         elif resolution == "HIGH":
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640) 
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) 
-                
-    # Función que gestiona los callbacks de los botones
-    def buttonsCallback(self, button):
-        try:
-            if button == "Salir":
-                # Salimos de la aplicación
-                self.client_app.quit()
 
-            elif button == "Conectar":
-                self.client_app.connect()
+    def display_users_list(self, users):
+        self.app.replaceAllTableRows(
+            "ListUsersTable",
+            [["Nick", "IP", "TCP port"]] + users
+        )
+        self.app.showSubWindow("ListUsers")
+        
 
-            elif button == "Registrar con otro usuario":
-                self.client_app.register_as_new_user()
-            
-            elif button == "Lista de usuarios":
-                self.client_app.list_of_users()
-
-            elif button =="Colgar llamada":
-                self.client_app.end_call()
-        except P3Exception as e:
-            self.app.infoBox("Error", e)
-    
     def stop(self):
         self.app.stop()
 

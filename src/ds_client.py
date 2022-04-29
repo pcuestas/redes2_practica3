@@ -59,9 +59,10 @@ class DSClient():
     def list_users(self):
         '''devuelve una lista con elementos del tipo: [nick, ip_address, port]'''
         resp_list = self.send("LIST_USERS")
+        print(resp_list[:16])
         return [
             query.split(' ')[:3] 
-            for query in ' '.join(resp_list.split(' ')[2:]).split('#')
+            for query in ' '.join(resp_list.split(' ')[2:]).split('#')[:-1]
         ]
 
 
