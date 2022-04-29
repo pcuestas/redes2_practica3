@@ -144,6 +144,7 @@ class ClientApplication(object):
         return True
 
 
+
     def quit(self):
         print("Cerrando aplicación.")
 

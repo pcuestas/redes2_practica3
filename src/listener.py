@@ -90,7 +90,7 @@ class ListenerThread(threading.Thread):
             self.accept_call(addr,tcp_port)
             self.client_app.init_call(peer)
 
-       
+        #falta msg=="CALL_BUSY"
         
         else:
             self.reject_call(addr,tcp_port)
