@@ -309,6 +309,8 @@ class VideoClient(object):
                     print('Error al codificar imagen')
                 self.client_app.call_manager.send_datagram(encimg.tobytes())
         except cv2.error as e:
+            if not self.capture_webcam: 
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             print(e)
 
     # Establece la resolución de la imagen capturada
