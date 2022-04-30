@@ -141,6 +141,7 @@ class ClientApplication(object):
         self.ds_client.quit()
 
         # cerrar aquí todos los hilos...
+        self.call_manager.quit()
 
     def init_call_window(self):
         self.video_client.app.showSubWindow("CallWindow")
