@@ -71,5 +71,5 @@ class CircularBuffer():
         pass
 
 def valid_port(port):
-    return port>=1024 and port <65536
+    return port >= 1024 and port < 65536
 

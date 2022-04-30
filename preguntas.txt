@@ -27,3 +27,4 @@ video que se envia:
 
 no llamar si el otro no está conectado (calling)
 no llamarme a mí mismo
+cerrar listener thread

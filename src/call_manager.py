@@ -81,6 +81,9 @@ class CallManager(object):
         self.client_app.end_call_window()
 
         self.receive_video_thread.end()
+        self.receive_video_thread.join()
+        self.receive_video_thread = None
+
         self.send_data_socket.close()
         self.send_data_socket = None
 
@@ -100,6 +103,12 @@ class CallManager(object):
 
     def configure_send_socket(self):
         self.send_data_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+
+    def quit(self):
+        #TODO matar hilos, esta función se llama cuando la app se cierra
+        if self.in_call():
+            self.end_call()
+        
 
     # funciones llamadas por el listener
     def receive_call(self, ipaddr, sock, nick, udp_port):
@@ -240,9 +249,9 @@ class CallManager(object):
 
 
 class ReceiveVideoThread(TerminatableThread):
-    def __init__(self,udp_port, client_app):
+    def __init__(self, udp_port, client_app):
         super().__init__()
-        self.server_port=udp_port
+        self.server_port = udp_port
         self.client_app = client_app
 
     def run(self):
@@ -284,6 +293,13 @@ class ReceiveVideoThread(TerminatableThread):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(('', self.server_port))
+            #print("Recibo {}".format(message.decode()))
+
+    def end(self):
+        super().end()
+        # despertar al hilo de recv si fuera necesario
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
+            s.sendto(b'1',(self.client_app.ds_client.ip_address, self.server_port))
         
 
     def modify_subWindow(self,video):
