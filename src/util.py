@@ -8,13 +8,16 @@ class TerminatableThread(threading.Thread):
 
     def __init__(self):
         super().__init__()
-        self.exit_event=threading.Event()
+        self._exit_event=threading.Event()
 
     def quit(self):
         pass
 
     def end(self):
-       self.exit_event.set()
+       self._exit_event.set()
+    
+    def stopped(self):
+        return self._exit_event.is_set()
         
 
 class TCP():

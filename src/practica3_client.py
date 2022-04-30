@@ -12,6 +12,7 @@ from exceptions import P3Exception
 from call_manager import User
 from util import *
 
+CAM_SIZE = (640, 480)
 
 class ClientApplication(object):
     '''Clase singleton: se utiliza llamando a self.client_app'''
@@ -188,7 +189,7 @@ class ClientApplication(object):
 
 class VideoClient(object):
 
-    def __init__(self, client_application, window_size="640x720"):
+    def __init__(self, client_application, window_size="720x720"):
         self.client_app = client_application
 
         # Creamos una variable que contenga el GUI principal
@@ -197,18 +198,21 @@ class VideoClient(object):
 
         # Preparación del interfaz
         self.app.addLabel("title", "Cliente Multimedia P2P - Redes2 ")
-        self.app.addImage("video", self.client_app.file("/imgs/webcam.gif"))
-        self.app.setImageSize("video", 640, 640)
+        self.app.addImage("video", self.client_app.file("/media/webcam.gif"))
+        self.app.setImageSize("video", CAM_SIZE[0], CAM_SIZE[1])
 
         self.cap = None
+
+        self.capture_webcam = False
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
         self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
-        self.app.setImageSize("inc_video",800,600)
+        self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
         self.app.addButtons(["Colgar"],self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
+        
         self.app.addStatusbar(fields=2)
         self.app.stopSubWindow()
 
@@ -219,7 +223,7 @@ class VideoClient(object):
         self.app.stopSubWindow()
 
     def update_status_bar(self,resolution,fps):
-        self.app.setStatusbar(f"Enviando a resolucion {resolution}", 0)
+        self.app.setStatusbar(f"Enviando a resolución {resolution}", 0)
         self.app.setStatusbar(f"FPS: {fps} ", 1)
                     
     # Función que gestiona los callbacks de los botones
@@ -264,10 +268,12 @@ class VideoClient(object):
         
         if capture_flag:
             print("Voy a usar camara")
+            self.capture_webcam = True
             self.cap = cv2.VideoCapture(0)
         else:
             print("Voy a usar video")
-            self.cap = cv2.VideoCapture(self.client_app.file("/imgs/webcam.gif"))
+            self.capture_webcam = False
+            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
             
         self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
@@ -285,24 +291,25 @@ class VideoClient(object):
      
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
-        
-        # Capturamos un frame de la cámara o del vídeo
-        ret, frame = self.cap.read()
-        
-        frame = cv2.resize(frame, (640, 480))
-        cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
+        try:
+            # Capturamos un frame de la cámara o del vídeo
+            ret, frame = self.cap.read()
+            frame = cv2.resize(frame, CAM_SIZE)
+            cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
 
-        # Lo mostramos en el GUI
-        self.app.setImageData("video", img_tk, fmt='PhotoImage')
+            # Lo mostramos en el GUI
+            self.app.setImageData("video", img_tk, fmt='PhotoImage')
 
-        # Aquí tendría que el código que envia el frame a la red
-        if self.client_app.call_manager.in_call():
-            encode_param = [cv2.IMWRITE_JPEG_QUALITY, 50]
-            result, encimg = cv2.imencode('.jpg', frame, encode_param)
-            if not result:
-                print('Error al codificar imagen')
-            self.client_app.call_manager.send_datagram(encimg.tobytes())
+            # Aquí tendría que el código que envia el frame a la red
+            if self.client_app.call_manager.in_call():
+                encode_param = [cv2.IMWRITE_JPEG_QUALITY, 50]
+                result, encimg = cv2.imencode('.jpg', frame, encode_param)
+                if not result:
+                    print('Error al codificar imagen')
+                self.client_app.call_manager.send_datagram(encimg.tobytes())
+        except cv2.error as e:
+            print(e)
 
     # Establece la resolución de la imagen capturada
     def setImageResolution(self, resolution):        

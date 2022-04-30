@@ -52,7 +52,7 @@ class CallManager(object):
         self.set_FPS()
         self._order_number = 0
         self._resolution = resolution
-        self.client_app.video_client.app.setImageResolution(resolution)
+        self.client_app.video_client.setImageResolution(resolution)
 
         self.configure_send_socket()
 
@@ -87,7 +87,7 @@ class CallManager(object):
 
         self.receive_video_thread.end()
         #TODO !!!!
-        self.receive_video_thread.join()
+        self.receive_video_thread.join(0.5)
         self.receive_video_thread = None
 
         self.send_data_socket.close()
@@ -291,7 +291,7 @@ class ReceiveVideoThread(TerminatableThread):
             #TODO cabecera 
             data, client_address = self.server_sock.recvfrom(2 << 14)
 
-            if self.exit_event.is_set():
+            if self.stopped():
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
                 return
