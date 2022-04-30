@@ -107,7 +107,7 @@ class CallManager(object):
         self.set_in_call(False)
 
     def hold_and_resume_call(self):
-
+        #TODO try except para el send
         #resume call 
         if self._pause and self._can_i_resume:
             self._pause = False

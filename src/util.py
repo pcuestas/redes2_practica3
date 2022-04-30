@@ -1,4 +1,4 @@
-from collections import deque
+from queue import PriorityQueue
 import threading
 import socket
 from exceptions import SocketError
@@ -63,36 +63,47 @@ class TCP():
         sock.settimeout(None)
         print(f"Leído: {total_size_read}")
         return data
-
 class CircularBuffer():
     '''
     Buffer circular FIFO con longitud máxima. 
-    Si está lleno y se inserta un elemento, se sustituye el 
+    Recibe en el método push una dupla: (prioridad, data).
+    Si está lleno y se inserta un elemento, y se sustituye el 
     primer elemento que se insertó.
     '''
-    def __init__(self, maxlen):
-        self._deque = deque(maxlen=maxlen)
+    def __init__(self, maxsize):
+        self._queue = PriorityQueue()
         self._mutex = threading.Lock()
         self._len = 0
+        self._maxsize = maxsize
 
     def push(self, elem):
-        '''Inserta un elemento a la cola FIFO'''
+        '''
+        Inserta un elemento a la cola FIFO: 
+        elem=(priority,data)
+        '''
         with self._mutex:
-            self._len = min(self._len + 1, self._deque.maxlen)
-            self._deque.append(elem)
+            if self._len == self._maxsize:
+                self._queue.get(block=False)
+            else:
+                self._len = self._len + 1
+            self._queue.put(elem)
 
     def pop(self):
-        '''Saca un elemento del buffer (el primero que se insertó) - FIFO'''
+        '''
+        Saca un elemento del buffer (el primero que se insertó) - FIFO
+        Devuelve la dupla (prioridad, data) en caso de que no esté vacío
+        el buffer. Devuelve None si está vacío.
+        '''
         if self._len:
             with self._mutex:
                 self._len -= 1
-                return self._deque.popleft()
+                return self._queue.get(block=False)
         else:
             return None
     
     def full(self):
         '''True si está lleno, False si no.'''
-        return self._len == self._deque.maxlen
+        return self._len == self._maxsize
 
     def empty(self):    
         '''True si está vacío, False si no.'''
@@ -101,14 +112,23 @@ class CircularBuffer():
     def clear(self):
         '''Vacía el buffer'''
         self._len = 0
-        self._deque.clear()
+        self._queue = PriorityQueue()
     
-    def set_maxlen(self, maxlen):
-        self._deque = deque(self._deque, maxlen=maxlen)
-        self._len = min(self._len, maxlen)
+    def set_maxlen(self, maxsize):
+        with self._mutex:
+            self._maxsize = maxsize
+            new_len = min(self._len, maxsize)
+            discard = self._len - new_len 
+            self._len = new_len
+            for _ in range(discard):
+                self._queue.get(block=False)
 
     def __str__(self):
-        return '(' + str(self._deque) + ', len='+ str(self._len) + ')'
+        return \
+              '(' + str(self._queue.queue)              \
+            + ', len='+ str(self._len)                  \
+            + ', maxsize=' + str(self._maxsize)   \
+            + ')'
 
 def valid_port(port):
     return port >= 1024 and port < 65536

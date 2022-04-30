@@ -20,6 +20,10 @@ class DSClient():
         self.nick = None
         self.password = None
         self.client_app = client_app
+        
+        # descomentar las siguientes dos líneas para conectar con alguien en la vpn
+        #import netifaces as ni
+        #ip_address = ni.ifaddresses('tun0')[ni.AF_INET][0]['addr']
         self.ip_address = ip_address
         self.client_app = client_app
         self.protocol = protocol
