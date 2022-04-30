@@ -82,7 +82,7 @@ class CallManager(object):
         self.client_app.end_call_window()
 
         self.receive_video_thread.end()
-        self.receive_video_thread.join()
+        #self.receive_video_thread.join()
         self.receive_video_thread = None
 
         self.send_data_socket.close()
@@ -283,6 +283,7 @@ class ReceiveVideoThread(TerminatableThread):
         i,k=0,0
         L=len(data)
 
+        #si es el mensaje que se envia para matar al hilo
         if L<2:
             return [None]*(HEADER_ITEMS+1)
         index=[-1]
