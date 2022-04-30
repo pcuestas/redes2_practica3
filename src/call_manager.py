@@ -1,4 +1,5 @@
 from http import client
+from re import I
 import threading
 from tkinter import Image
 from PIL import Image, ImageTk
@@ -261,8 +262,10 @@ class ReceiveVideoThread(TerminatableThread):
         while 1:
             #TODO cabecera 
             data, client_address = self.server_sock.recvfrom(2 << 14)
+
             order_number,timestamp,resolution,fps,video = self.split_data(data)
-     
+          
+
             if self.exit_event.is_set():
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
@@ -275,8 +278,13 @@ class ReceiveVideoThread(TerminatableThread):
     def split_data(self,data):
         'Devuelve una lista con los elementos de la cabcera y los datos del video'
         #cabecera: Norden#TimeStamp#Resolution#FPS#
+
+        
         i,k=0,0
         L=len(data)
+
+        if L<2:
+            return [None]*(HEADER_ITEMS+1)
         index=[-1]
 
         while i<L and k<HEADER_ITEMS:
@@ -293,7 +301,6 @@ class ReceiveVideoThread(TerminatableThread):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(('', self.server_port))
-            #print("Recibo {}".format(message.decode()))
 
     def end(self):
         super().end()
@@ -306,7 +313,6 @@ class ReceiveVideoThread(TerminatableThread):
         decimg = cv2.imdecode(np.frombuffer(video,np.uint8), 1)
         cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
         img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
-        #self.client_app.video_client.app.setLabel("msg_call_window", msg)
         self.client_app.video_client.app.setImageData("inc_video", img_tk, fmt='PhotoImage')
     
 
