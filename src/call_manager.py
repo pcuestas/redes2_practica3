@@ -10,12 +10,15 @@ from util import TCP, TerminatableThread
 import time
 import socket
 
+HEADER_ITEMS=4
+
 class User(object):
     def __init__(self, nick, ipaddr:str, udp_port:int, tcp_port:int):
         self.nick = nick
         self.ipaddr = ipaddr
         self.udp_port = udp_port
         self.tcp_port = tcp_port
+
 
 class CallManager(object):
 
@@ -32,8 +35,19 @@ class CallManager(object):
         self._waiting_call_response = False
         self._in_call = False
 
-    def init_call(self, peer: User):
+        #gestión de flujo
+        self._fps = None
+        self._order_number = None
+        self._resolution = None
+
+    def init_call(self, peer: User, resolution = "MEDIUM",fps=50):
         self.client_app.init_call_window()
+  
+
+        self.set_FPS()
+        self._order_number = 0
+        self._resolution = resolution
+        self.client_app.video_client.app.setImageResolution(resolution)
 
         self.configure_send_socket()
 
@@ -47,11 +61,21 @@ class CallManager(object):
 
     ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
-        #TODO modificar para que se manden las cabeceras
         if self.send_data_socket:
-            # sendall ??
-            self.send_data_socket.sendto(videoframe,(self._peer.ipaddr,self._peer.udp_port))
-    
+            header = self.build_header()
+            self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr,self._peer.udp_port))
+            self.client_app.video_client.update_status_bar(self._resolution,self._fps)
+            self._order_number+=1
+
+    def build_header(self):
+        'Construye la cabcera y la devuelve como una cadena de bytes'
+        return bytes(str(self._order_number)+"#"+str(time.time())+"#" \
+                + self._resolution+"#"+str(self._fps)+"#",'utf-8')
+
+    def set_FPS(self,fps=50):
+        self._fps = fps
+        self.client_app.video_client.app.setPollTime( 1000 // fps)
+
     def end_call(self, send_end_call=True):
 
         self.client_app.end_call_window()
@@ -81,13 +105,15 @@ class CallManager(object):
     def receive_call(self, ipaddr, sock, nick, udp_port):
         '''Recibo llamada de un usuario'''
         if self.in_call():
+            print("Ocupadoooo")
             TCP.send("CALL_BUSY", sock)
             return 
 
         nick, nickaddr, tcp_port, protocol = self.client_app.ds_client.query(nick)
         
         if nickaddr != ipaddr:
-            return 
+            print(f"Fallan ips {nickaddr}=={ipaddr}")
+            #return 
 
         try:
             if self.client_app.video_client.app.questionBox(
@@ -220,23 +246,44 @@ class ReceiveVideoThread(TerminatableThread):
         self.client_app = client_app
 
     def run(self):
-        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_sock.bind(('', self.server_port))
+
+        self.configure_socket()
 
         while 1:
             #TODO cabecera 
-            video, client_address = self.server_sock.recvfrom(2 << 14)
-        
-            #if self.end_call(message) or self.exit_event.is_set():
+            data, client_address = self.server_sock.recvfrom(2 << 14)
+            order_number,timestamp,resolution,fps,video = self.split_data(data)
+     
             if self.exit_event.is_set():
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
                 return
 
 
-            #print("Recibo {}".format(message.decode()))
             self.modify_subWindow(video)
 
+    
+    def split_data(self,data):
+        'Devuelve una lista con los elementos de la cabcera y los datos del video'
+        #cabecera: Norden#TimeStamp#Resolution#FPS#
+        i,k=0,0
+        L=len(data)
+        index=[-1]
+
+        while i<L and k<HEADER_ITEMS:
+            if chr(data[i])=='#':
+                index.append(i)
+                k+=1
+            i+=1
+
+        items=[data[index[i]+1:index[i+1]] for i in range(HEADER_ITEMS)]
+        items.append(data[index[HEADER_ITEMS]+1:])
+        return items
+
+    def configure_socket(self):
+        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_sock.bind(('', self.server_port))
         
 
     def modify_subWindow(self,video):

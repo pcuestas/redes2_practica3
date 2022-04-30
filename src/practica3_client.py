@@ -206,6 +206,8 @@ class VideoClient(object):
         self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
         self.app.setImageSize("inc_video",800,600)
         self.app.addButtons(["Colgar llamada"],self.buttonsCallback)
+        self.app.addStatusbar(fields=2)
+
         self.app.stopSubWindow()
 
     def configure_list_users_window(self):
@@ -213,6 +215,10 @@ class VideoClient(object):
         self.app.addTable("ListUsersTable",[[1]])
         self.app.addButtons(["Cerrar"], self.buttonsCallbackListUsers)
         self.app.stopSubWindow()
+
+    def update_status_bar(self,resolution,fps):
+        self.app.setStatusbar(f"Enviando a resolucion {resolution}", 0)
+        self.app.setStatusbar(f"FPS: {fps} ", 1)
                     
     # Función que gestiona los callbacks de los botones
     def buttonsCallback(self, button):
@@ -270,8 +276,7 @@ class VideoClient(object):
         self.configure_list_users_window()
         # Barra de estado
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
-        self.app.addStatusbar(fields=2)
-
+     
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
         

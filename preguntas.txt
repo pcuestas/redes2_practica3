@@ -7,7 +7,8 @@ hacer cache de nick ip port de los ya buscados
 
 PREGUNTAS:
 
-
+- campo resolucion cabecera 700x200 vs 1627 bytes
+- sockets para comandos de control
 
 
 
