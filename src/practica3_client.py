@@ -208,7 +208,7 @@ class VideoClient(object):
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
-        self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
+        self.app.addImage("inc_video",self.client_app.file("/media/webcam.gif"))
         self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
         self.app.addButtons(["Colgar"],self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
