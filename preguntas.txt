@@ -30,3 +30,7 @@ no llamarme a mí mismo
 cerrar listener thread
 
 statusbar no se cambia de subwindow
+
+
+TONTERÍA:
+    CircularBuffer: len(self._deque) tiene complejidad 1

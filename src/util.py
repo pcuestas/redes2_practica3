@@ -76,14 +76,14 @@ class CircularBuffer():
         '''Inserta un elemento a la cola FIFO'''
         with self._mutex:
             self._len = min(self._len + 1, self._deque.maxlen)
-            self._deque.appendleft(elem)
+            self._deque.append(elem)
 
     def pop(self):
         '''Saca un elemento del buffer (el primero que se insertó) - FIFO'''
         if self._len:
             with self._mutex:
                 self._len -= 1
-                return self._deque.pop()
+                return self._deque.popleft()
         else:
             return None
     
@@ -99,6 +99,13 @@ class CircularBuffer():
         '''Vacía el buffer'''
         self._len = 0
         self._deque.clear()
+    
+    def set_maxlen(self, maxlen):
+        self._deque = deque(self._deque, maxlen=maxlen)
+        self._len = min(self._len, maxlen)
+
+    def __str__(self):
+        return '(' + str(self._deque) + ', len='+ str(self._len) + ')'
 
 def valid_port(port):
     return port >= 1024 and port < 65536
