@@ -144,6 +144,7 @@ class ClientApplication(object):
         self.call_manager.quit()
 
     def init_call_window(self):
+        self.video_client.app.setButton("pause/resume","Pause")
         self.video_client.app.showSubWindow("CallWindow")
 
     def end_call_window(self):
@@ -206,9 +207,9 @@ class VideoClient(object):
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
         self.app.addImage("inc_video",self.client_app.file("/imgs/webcam.gif"))
         self.app.setImageSize("inc_video",800,600)
-        self.app.addButtons(["Colgar llamada"],self.buttonsCallback)
+        self.app.addButtons(["Colgar"],self.buttonsCallback)
+        self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
         self.app.addStatusbar(fields=2)
-
         self.app.stopSubWindow()
 
     def configure_list_users_window(self):
@@ -237,8 +238,12 @@ class VideoClient(object):
             elif button == "Lista de usuarios":
                 self.client_app.list_of_users()
 
-            elif button =="Colgar llamada":
+            elif button =="Colgar":
                 self.client_app.call_manager.end_call()
+
+            elif button =="pause/resume":
+                self.client_app.call_manager.hold_and_resume_call()
+            
         except P3Exception as e:
             self.app.infoBox("Error", e)
 

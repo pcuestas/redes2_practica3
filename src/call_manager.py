@@ -35,6 +35,8 @@ class CallManager(object):
         #Flags que indican si se está esperando llamada o en llamada 
         self._waiting_call_response = False
         self._in_call = False
+        self._pause = False
+        self._can_i_resume = False
 
         #gestión de flujo
         self._fps = None
@@ -62,7 +64,7 @@ class CallManager(object):
 
     ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
-        if self.send_data_socket:
+        if self.send_data_socket and not self._pause:
             header = self.build_header()
             self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr,self._peer.udp_port))
             self.client_app.video_client.update_status_bar(self._resolution,self._fps)
@@ -82,6 +84,8 @@ class CallManager(object):
         self.client_app.end_call_window()
 
         self.receive_video_thread.end()
+
+        #TODO !!!!
         #self.receive_video_thread.join()
         self.receive_video_thread = None
 
@@ -101,6 +105,25 @@ class CallManager(object):
         self.set_peer(None)
         self.set_in_call(False)
 
+    def hold_and_resume_call(self):
+
+        #resume call 
+        if self._pause and self._can_i_resume:
+            self._pause = False
+            self._can_i_resume = False
+            self.client_app.video_client.app.setButton("pause/resume","Pause")
+            TCP.create_socket_and_send(f" CALL_RESUME {self.client_app.ds_client.nick}.",
+                                        ip=self._peer.ipaddr,
+                                        tcp_port=self._peer.tcp_port)
+            
+        #pause call
+        elif not self._pause: 
+            self._pause = True
+            self._can_i_resume = True
+            self.client_app.video_client.app.setButton("pause/resume","Resume")
+            TCP.create_socket_and_send(f" CALL_HOLD {self.client_app.ds_client.nick}.",
+                                        ip=self._peer.ipaddr,
+                                        tcp_port=self._peer.tcp_port)
 
     def configure_send_socket(self):
         self.send_data_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -152,7 +175,7 @@ class CallManager(object):
             self.set_waiting_call_response(False)
             self.set_peer(None)
             self.video_client.app.infoBox("Info", f"No se pudo conectar con {peer.nick}.\n {e}")
-            
+    
     def call_accepted(self, sock, nick, udp_port):
         '''Me han aceptado llamada'''
         if self.in_call():
@@ -203,13 +226,17 @@ class CallManager(object):
         #TODO poner llamada en hold
         self.client_app.video_client.app.infoBox("Info", f"{nick} ha puesto la llamada en hold.")
 
+        self._can_i_resume = False
+        self._pause = True
+
     def receive_call_resume(self, nick):
         if not self.in_call():
             # no estoy en llamada  o remitente incorrecto, ignoro mensaje
             return 
         
         #TODO reanudar llamada
-    
+        self._pause = False
+        self._can_i_resume = False
 
     #def correct_nick_addr(self, nick, ipaddr):
     #    return (nick == self._peer.nick) and (ipaddr == self._peer.ipaddr)
