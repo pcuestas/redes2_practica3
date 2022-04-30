@@ -290,14 +290,12 @@ class ReceiveVideoThread(TerminatableThread):
             #TODO cabecera 
             data, client_address = self.server_sock.recvfrom(2 << 14)
 
-            order_number,timestamp,resolution,fps,video = self.split_data(data)
-          
-
             if self.exit_event.is_set():
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
                 return
 
+            order_number,timestamp,resolution,fps,video = self.split_data(data)
 
             self.modify_subWindow(video)
 
@@ -305,14 +303,11 @@ class ReceiveVideoThread(TerminatableThread):
     def split_data(self,data):
         'Devuelve una lista con los elementos de la cabcera y los datos del video'
         #cabecera: Norden#TimeStamp#Resolution#FPS#
-
-        
+        return data.split(b'#', HEADER_ITEMS)
+        '''
         i,k=0,0
         L=len(data)
 
-        #si es el mensaje que se envia para matar al hilo
-        if L<2:
-            return [None]*(HEADER_ITEMS+1)
         index=[-1]
 
         while i<L and k<HEADER_ITEMS:
@@ -324,6 +319,7 @@ class ReceiveVideoThread(TerminatableThread):
         items=[data[index[i]+1:index[i+1]] for i in range(HEADER_ITEMS)]
         items.append(data[index[HEADER_ITEMS]+1:])
         return items
+        '''
 
     def configure_socket(self):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
