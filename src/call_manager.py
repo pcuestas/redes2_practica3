@@ -42,8 +42,8 @@ class CallManager(object):
         self._fps = None
         self._order_number = None
         self._resolution = None
-            # buffer de frames:
-        self.call_buffer = CircularBuffer()
+            #TODO buffer de frames:
+        self.call_buffer = CircularBuffer(100)
 
     def init_call(self, peer: User, resolution = "MEDIUM",fps=50):
         self.client_app.init_call_window()
@@ -86,9 +86,8 @@ class CallManager(object):
         self.client_app.end_call_window()
 
         self.receive_video_thread.end()
-
         #TODO !!!!
-        #self.receive_video_thread.join()
+        self.receive_video_thread.join()
         self.receive_video_thread = None
 
         self.send_data_socket.close()
