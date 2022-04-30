@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 import cv2
 from exceptions import P3Exception
 import numpy as np
-from util import TCP, TerminatableThread
+from util import TCP, CircularBuffer, TerminatableThread
 import time
 import socket
 
@@ -42,6 +42,8 @@ class CallManager(object):
         self._fps = None
         self._order_number = None
         self._resolution = None
+            # buffer de frames:
+        self.call_buffer = CircularBuffer()
 
     def init_call(self, peer: User, resolution = "MEDIUM",fps=50):
         self.client_app.init_call_window()
@@ -301,25 +303,9 @@ class ReceiveVideoThread(TerminatableThread):
 
     
     def split_data(self,data):
-        'Devuelve una lista con los elementos de la cabcera y los datos del video'
+        'Devuelve una lista con los elementos de la cabecera y los datos del video'
         #cabecera: Norden#TimeStamp#Resolution#FPS#
         return data.split(b'#', HEADER_ITEMS)
-        '''
-        i,k=0,0
-        L=len(data)
-
-        index=[-1]
-
-        while i<L and k<HEADER_ITEMS:
-            if chr(data[i])=='#':
-                index.append(i)
-                k+=1
-            i+=1
-
-        items=[data[index[i]+1:index[i+1]] for i in range(HEADER_ITEMS)]
-        items.append(data[index[HEADER_ITEMS]+1:])
-        return items
-        '''
 
     def configure_socket(self):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

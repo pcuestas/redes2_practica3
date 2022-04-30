@@ -62,13 +62,43 @@ class TCP():
         return data
 
 class CircularBuffer():
-    def __init__(self, size):
-        self.queue = deque(maxlen=size)
-        self.size = size
-        self.full = False
+    '''
+    Buffer circular FIFO con longitud máxima. 
+    Si está lleno y se inserta un elemento, se sustituye el 
+    primer elemento que se insertó.
+    '''
+    def __init__(self, maxlen):
+        self._deque = deque(maxlen=maxlen)
+        self._mutex = threading.Lock()
+        self._len = 0
 
-    def insert(self, elem):
-        pass
+    def push(self, elem):
+        '''Inserta un elemento a la cola FIFO'''
+        with self._mutex:
+            self._len = min(self._len + 1, self._deque.maxlen)
+            self._deque.appendleft(elem)
+
+    def pop(self):
+        '''Saca un elemento del buffer (el primero que se insertó) - FIFO'''
+        if self._len:
+            with self._mutex:
+                self._len -= 1
+                return self._deque.pop()
+        else:
+            return None
+    
+    def full(self):
+        '''True si está lleno, False si no.'''
+        return self._len == self._deque.maxlen
+
+    def empty(self):    
+        '''True si está vacío, False si no.'''
+        return self._len == 0
+
+    def clear(self):
+        '''Vacía el buffer'''
+        self._len = 0
+        self._deque.clear()
 
 def valid_port(port):
     return port >= 1024 and port < 65536
