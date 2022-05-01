@@ -1,7 +1,7 @@
 from queue import PriorityQueue
 import threading
 import socket
-from exceptions import SocketError
+from exceptions import P3Exception, SocketError
 
 #hilos 
 class TerminatableThread(threading.Thread):
@@ -22,19 +22,20 @@ class TerminatableThread(threading.Thread):
 
 class TCP():
     def server_socket(tcp_port, max_connections):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind(('', tcp_port))
-        server_socket.listen(max_connections)
-        return server_socket
+        '''Crea y devuelve un socket tcp para ser usado como servidor'''
+        try:
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_socket.bind(('', tcp_port))
+            server_socket.listen(max_connections)
+            return server_socket
+        except socket.error as err:
+            raise SocketError(err)
 
     def create_socket_and_send(msg:str, ip, tcp_port):
-        print(f"ip {ip} y puerto {tcp_port} con tipos {type(ip)} y {type(tcp_port)}")
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((ip, int(tcp_port)))
-        TCP.send(msg, sock)
-        sock.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((ip, int(tcp_port)))
+            TCP.send(msg, sock)
 
     def send(msg:str, sock):        
         try:
@@ -46,22 +47,23 @@ class TCP():
         BUFF_SIZE = 4096 # 4 KiB
         data = b''
 
-        total_size_read = 0
-
         try:
             if timeout_seconds: 
                 sock.settimeout(timeout_seconds)
-            read = 1
-            while read:
+
+            part = b'0' # (porque no hay do while)
+
+            while len(part):
                 part = sock.recv(BUFF_SIZE)
                 data += part
-                read = len(part)
-                total_size_read += read
+                
         except socket.error:
             pass
         
-        sock.settimeout(None)
-        print(f"Leído: {total_size_read}")
+        if timeout_seconds: 
+            sock.settimeout(None)
+
+        print(f"Leído: {len(data)}")
         return data
 class CircularBuffer():
     '''

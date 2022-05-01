@@ -51,50 +51,75 @@ class ClientApplication(object):
         return self._instance
 
     def start(self):
-        # quitar estas líneas:
-        self.ds_client.nick = 'pablo'
-        self.ds_client.password = 'abcd'
+        self.request_initial_register()
+        self.video_client.start()
 
-        # pedir al usuario puertos y nick/password
-        if not self.request_ports() or not self.request_nick_password_and_register():
-            self.video_client.app.infoBox("Info", "Cerrando aplicación")
-            return 
-
+    def start_after_register(self):
         # pregunta si quiere webcam
         capture_flag = self.video_client.app.yesNoBox("WebCam", "¿Usar cámara?")
-        
+
         #Inicia el hilo que escucha peticiones
         self.listener_thread.start()
 
         # iniciar el VideoClient - la ejecución se queda 
         # aquí hasta que se salga del video client
         self.video_client.app.setLabel("title",f"{self.ds_client.nick} - Cliente Multimedia P2P ")
-        self.video_client.start(capture_flag)
-    
-    def request_ports(self):
-        while True:
-            tcpp = self.request_to_user("Introduce el puerto tcp")
-            if not tcpp: return False
-            tcpp = int(tcpp)
-            if not valid_port(tcpp):
-                self.video_client.app.infoBox("Cuidado", "El puerto debe ser mayor que 1024")
-            else:
-                break
+        self.video_client.start_after_register(capture_flag)
+
+    def initial_register_button(self, button):
+        if button == "Cerrar":
+            self.video_client.stop()
+            return 
+
+        entries = self.video_client.app.getAllEntries()
+        try:
+            tcpp,udpp, = int(entries["tcpp"]),int(entries["udpp"])
+            nick,passw = entries["nick"], entries["pass"]
+        except:
+            self.video_client.app.infoBox("Error","Se deben rellenar todos los campos.")
+            return 
         
-        while True:
-            udpp = self.request_to_user("Introduce el puerto udp") 
-            if not udpp: return False
-            udpp = int(udpp)
-            if not valid_port(udpp):
-                self.video_client.app.infoBox("Cuidado", "El puerto debe ser mayor que 1024 y menor que 655364")
-            else:
-                break
-            
-        self._tcp_port = tcpp 
+        if not valid_port(tcpp) or not valid_port(udpp):
+            self.video_client.app.infoBox("Cuidado", "El puerto debe ser mayor que 1024 y menor que 655364.")
+            return 
+        
+        self._tcp_port = tcpp
         self._udp_port = udpp
+
+        try:
+            self.ds_client.nick = nick 
+            self.ds_client.password = passw
+            self.ds_client.register()
+            self.video_client.app.hideSubWindow("Register")
+        except:
+            self.video_client.app.infoBox("Error", "Usuario o contraseña incorrecto.")
+            return 
+
+        # lanzar la aplicación 
+        self.start_after_register()
+    
+    def request_initial_register(self):
+        self.video_client.app.startSubWindow("Register", modal=True)
+
+        self.video_client.app.addLabel("lr1", "Puerto TCP:")
+        self.video_client.app.addEntry("tcpp")
+        self.video_client.app.setEntry("tcpp","11000")
+
+        self.video_client.app.addLabel("lr2", "Puerto UDP:")
+        self.video_client.app.addEntry("udpp")
+        self.video_client.app.setEntry("udpp","8000")
+
+        self.video_client.app.addLabel("lr3", "Nick:")
+        self.video_client.app.addEntry("nick")
+
+        self.video_client.app.addLabel("lr4", "Contraseña:")
+        self.video_client.app.addSecretEntry("pass")
+
+        self.video_client.app.addButtons(["Entrar", "Cerrar"],self.initial_register_button)
+        self.video_client.app.stopSubWindow()
         
-        # puertos leídos correctamente
-        return True
+        self.video_client.app.showSubWindow("Register")
+
 
     def request_nick_password_and_register(self):
         while True:
@@ -133,7 +158,6 @@ class ClientApplication(object):
         self.ds_client.password = password
 
         return True
-
     def quit(self):
         print("Cerrando aplicación.")
 
@@ -182,7 +206,7 @@ class ClientApplication(object):
     def list_of_users(self):
         users = self.ds_client.list_users()
         print("número de usuarios leídos:",len(users))
-        self.video_client.display_users_list(users) #########################################################
+        self.video_client.display_users_list(users) 
 
     
 
@@ -200,6 +224,7 @@ class VideoClient(object):
         self.app.addLabel("title", "Cliente Multimedia P2P - Redes2 ")
         self.app.addImage("video", self.client_app.file("/media/webcam.gif"))
         self.app.setImageSize("video", CAM_SIZE[0], CAM_SIZE[1])
+        self.app.setLocation(x=0, y=0)
 
         self.cap = None
 
@@ -207,10 +232,11 @@ class VideoClient(object):
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
+        self.app.setSize(CAM_SIZE[0]+100, CAM_SIZE[1]+100)
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
-        self.app.addImage("inc_video",self.client_app.file("/media/webcam.gif"))
+        self.app.addImage("inc_video", self.client_app.file("/media/webcam.gif"))
         self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
-        self.app.addButtons(["Colgar"],self.buttonsCallback)
+        self.app.addButtons(["Colgar"], self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
         
         self.app.addStatusbar(fields=2)
@@ -218,8 +244,13 @@ class VideoClient(object):
 
     def configure_list_users_window(self):
         self.app.startSubWindow("ListUsers", modal=True)
-        self.app.addTable("ListUsersTable",[[1]])
-        self.app.addButtons(["Cerrar"], self.buttonsCallbackListUsers)
+        self.app.setSize(640, 700)
+
+        self.app.addListBox("ListBoxUsers",values=[])
+        self.app.setListBoxWidth("ListBoxUsers", 60)
+        self.app.setListBoxHeight("ListBoxUsers", 30)
+
+        self.app.addButtons(["Cerrar lista"], self.buttonsCallbackListUsers)
         self.app.stopSubWindow()
 
     def update_status_bar(self,resolution,fps):
@@ -253,14 +284,16 @@ class VideoClient(object):
 
     def buttonsCallbackListUsers(self, button):
         try: 
-            if button == "Cerrar":
+            if button == "Cerrar lista":
                 self.app.hideSubWindow("ListUsers")
         except P3Exception as e:
             self.app.infoBox("Error", e)
 
-    def start(self, capture_flag):
-        self.config_capture_video(capture_flag)
+    def start(self):
         self.app.go()
+
+    def start_after_register(self, capture_flag):
+        self.config_capture_video(capture_flag)
 
     def config_capture_video(self, capture_flag):
         # Registramos la función de captura de video
@@ -270,7 +303,11 @@ class VideoClient(object):
             print("Voy a usar camara")
             self.capture_webcam = True
             self.cap = cv2.VideoCapture(0)
-        else:
+            if not self.cap.isOpened():
+                capture_flag = False
+                print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
+
+        if not capture_flag:
             print("Voy a usar video")
             self.capture_webcam = False
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
@@ -329,9 +366,15 @@ class VideoClient(object):
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) 
 
     def display_users_list(self, users):
-        self.app.replaceAllTableRows(
-            "ListUsersTable",
-            [["Nick", "IP", "TCP port"]] + users
+        #self.app.replaceAllTableRows(
+        #    "ListUsersTable",
+        #    [["Nick", "IP", "TCP port"]] + users
+        #)
+        self.app.clearListBox("ListBoxUsers")
+        self.app.updateListBox(
+            "ListBoxUsers",
+              ["        USUARIOS EN EL SERVIDOR"] 
+            +[f"  {i}. Nombre: '{s[0]}'; IP: {s[1]}; puerto: {s[2]}." for i,s in enumerate(users)]
         )
         self.app.showSubWindow("ListUsers")
         

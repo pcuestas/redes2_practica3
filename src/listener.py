@@ -3,6 +3,7 @@ import socket
 from exceptions import P3Exception
 from practica3_client import ClientApplication, VideoClient
 from util import TCP
+import numpy as np
 
 
 ##Escucha peticiones de llamada y lanza hilos para procesar las peticiones
@@ -20,7 +21,15 @@ class ListenerThread(threading.Thread):
         self.video_client=video_client
 
     def run(self):
-        server_socket = TCP.server_socket(self.client_app._tcp_port, max_connections=10)
+        while 1:
+            try:
+                server_socket = TCP.server_socket(self.client_app._tcp_port, max_connections=10)
+                break 
+            except P3Exception as e:
+                print("Listener ha tenido un problema: " + str(e))
+                self.client_app._tcp_port = np.random.randint(10000, 11000)
+                self.client_app.ds_client.register()
+                print(f"Listener selecciona otro puerto aleatorio: {self.client_app._tcp_port}")
 
         print(f"Listener esperando en el puerto: {self.client_app._tcp_port}")
 
@@ -34,7 +43,7 @@ class ListenerThread(threading.Thread):
 
     def process_control_message(self, petition, connection_socket, addr=None):
         
-        print(f"Proceso mensaje de control {petition}")
+        print(f"Listener procesa: '{petition}'")
         
         petition_list = petition.split(' ')
 
@@ -64,16 +73,11 @@ class ListenerThread(threading.Thread):
 
     
     def request_peer(self, msg, ip, tcp_port):
-        print(f"ip {ip} y puerto {tcp_port} con tipos {type(ip)} y {type(tcp_port)}")
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((ip, tcp_port))
-        TCP.send(msg, sock)
-        petition = TCP.recvall(sock, 20).decode(encoding="utf-8")
-        self.process_control_message(petition, sock)
-        sock.close()
-
-      
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((ip, tcp_port))
+            TCP.send(msg, sock)
+            petition = TCP.recvall(sock, 20).decode(encoding="utf-8")
+            self.process_control_message(petition, sock)      
 
     
 

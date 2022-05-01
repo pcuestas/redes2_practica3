@@ -113,7 +113,7 @@ class CallManager(object):
             self._pause = False
             self._can_i_resume = False
             self.client_app.video_client.app.setButton("pause/resume","Pause")
-            TCP.create_socket_and_send(f" CALL_RESUME {self.client_app.ds_client.nick}.",
+            TCP.create_socket_and_send(f"CALL_RESUME {self.client_app.ds_client.nick}",
                                         ip=self._peer.ipaddr,
                                         tcp_port=self._peer.tcp_port)
             
@@ -122,7 +122,7 @@ class CallManager(object):
             self._pause = True
             self._can_i_resume = True
             self.client_app.video_client.app.setButton("pause/resume","Resume")
-            TCP.create_socket_and_send(f" CALL_HOLD {self.client_app.ds_client.nick}.",
+            TCP.create_socket_and_send(f"CALL_HOLD {self.client_app.ds_client.nick}",
                                         ip=self._peer.ipaddr,
                                         tcp_port=self._peer.tcp_port)
 
@@ -151,8 +151,8 @@ class CallManager(object):
 
         try:
             if self.client_app.video_client.app.questionBox(
-                title=f"Llamada entrante de {nick}",
-                message="¿Aceptar llamada?"
+                title="Llamada",
+                message=f"¿Aceptar llamada entrante de {nick}?"
             ):
                 peer = User(nick, nickaddr, int(udp_port), int(tcp_port))
                 TCP.send(f"CALL_ACCEPTED {self.client_app.ds_client.nick} {self.client_app._udp_port}", sock)
@@ -185,7 +185,7 @@ class CallManager(object):
             return 
 
         if not self.waiting_call_response():
-            # no espero respuesta  o remitente incorrecto, ignoro mensaje
+            # no espero respuesta, ignoro mensaje
             return 
 
         # es justo de quien esperamos llamada:
@@ -195,7 +195,7 @@ class CallManager(object):
 
     def receive_call_denied(self, nick):
         if not self.waiting_call_response():
-            # no espero respuesta o remitente incorrecto, ignoro mensaje
+            # no espero respuesta, ignoro mensaje
             return
 
         self.set_waiting_call_response(False)
@@ -204,7 +204,7 @@ class CallManager(object):
 
     def receive_call_busy(self, nick):
         if not self.waiting_call_response():
-            # no espero respuesta o remitente incorrecto, ignoro mensaje
+            # no espero respuesta, ignoro mensaje
             return
 
         self.set_waiting_call_response(False)
@@ -213,7 +213,7 @@ class CallManager(object):
 
     def receive_call_end(self, nick):
         if not self.in_call():
-            # no estoy en llamada  o remitente incorrecto, ignoro mensaje
+            # no estoy en llamada, ignoro mensaje
             return 
         
         self.end_call(False)
@@ -221,18 +221,17 @@ class CallManager(object):
 
     def receive_call_hold(self, nick):
         if not self.in_call():
-            # no estoy en llamada  o remitente incorrecto, ignoro mensaje
+            # no estoy en llamada, ignoro mensaje
             return 
         
-        #TODO poner llamada en hold
-        self.client_app.video_client.app.infoBox("Info", f"{nick} ha puesto la llamada en hold.")
-
         self._can_i_resume = False
         self._pause = True
+        
+        self.client_app.video_client.app.infoBox("Info", f"{nick} ha puesto la llamada en hold.", parent = "CallWindow")
 
     def receive_call_resume(self, nick):
         if not self.in_call():
-            # no estoy en llamada  o remitente incorrecto, ignoro mensaje
+            # no estoy en llamada, ignoro mensaje
             return 
         
         #TODO reanudar llamada
@@ -290,7 +289,7 @@ class ReceiveVideoThread(TerminatableThread):
         while 1:
             #TODO cabecera 
             data, client_address = self.server_sock.recvfrom(2 << 14)
-
+            
             if self.stopped():
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
