@@ -40,19 +40,19 @@ class CallManager(object):
 
         #gestión de flujo
         self._send_fps = None
-        self._order_number = None
+        self._send_order_number = None
         self._resolution = None
             #TODO buffer de frames:
         self.call_buffer = CircularBuffer(100)
 
-    def init_call(self, peer: User, resolution = "MEDIUM",fps=50):
+    def init_call(self, peer: User):
         self.client_app.init_call_window()
   
-
+        # fps y resolución por defecto
         self.set_send_fps()
-        self._order_number = 0
-        self._resolution = resolution
-        self.client_app.video_client.setImageResolution(resolution)
+        self.set_image_resolution()
+
+        self._send_order_number = 0
 
         self.configure_send_socket()
 
@@ -60,7 +60,8 @@ class CallManager(object):
         self.set_peer(peer)
 
         self.receive_video_thread = ReceiveVideoThread(
-            self.client_app._udp_port, self.client_app)
+            self.client_app._udp_port, self.client_app
+        )
         self.receive_video_thread.start()
 
 
@@ -68,18 +69,23 @@ class CallManager(object):
     def send_datagram(self, videoframe):
         if self.send_data_socket and not self._pause:
             header = self.build_header()
-            self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr,self._peer.udp_port))
-            self.client_app.video_client.update_status_bar(self._resolution,self._send_fps)
-            self._order_number+=1
+            self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
+            self._send_order_number += 1
 
     def build_header(self):
         'Construye la cabcera y la devuelve como una cadena de bytes'
-        return bytes(str(self._order_number)+"#"+str(time.time())+"#" \
+        return bytes(str(self._send_order_number)+"#"+str(time.time())+"#" \
                 + self._resolution+"#"+str(self._send_fps)+"#",'utf-8')
 
-    def set_send_fps(self,fps=50):
+    def set_send_fps(self, fps=50):
         self._send_fps = fps
-        self.client_app.video_client.app.setPollTime( 1000 // fps)
+        self.client_app.video_client.app.setPollTime( 1000 / fps)
+        self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
+
+    def set_image_resolution(self, resolution="MEDIUM"):
+        self._resolution = resolution
+        self.client_app.video_client.setImageResolution(resolution)
+        self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
     def end_call(self, send_end_call=True):
 

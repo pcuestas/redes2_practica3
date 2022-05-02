@@ -253,7 +253,7 @@ class VideoClient(object):
         self.app.addButtons(["Cerrar lista"], self.buttonsCallbackListUsers)
         self.app.stopSubWindow()
 
-    def update_status_bar(self,resolution,fps):
+    def update_status_bar(self, resolution, fps):
         self.app.setStatusbar(f"Enviando a resolución {resolution}", 0)
         self.app.setStatusbar(f"FPS: {fps} ", 1)
                     
