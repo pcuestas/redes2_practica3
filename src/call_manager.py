@@ -42,6 +42,7 @@ class CallManager(object):
         self._send_fps = None
         self._send_order_number = None
         self._resolution = None
+        self._n_frame_mutex = threading.Lock()
         self._last_frame_shown = -1
             #TODO buffer de frames:
         self.call_buffer = CircularBuffer(100)
@@ -52,6 +53,8 @@ class CallManager(object):
         # fps y resolución por defecto
         self.set_send_fps()
         self.set_image_resolution()
+        self.client_app.video_client.capture_webcam = False
+        self.client_app.video_client.app.set_video_capture(False)
 
         self._send_order_number = 0
 
@@ -113,6 +116,24 @@ class CallManager(object):
         self.set_peer(None)
         self.set_in_call(False)
 
+    
+    def change_video_cap(self):
+
+        print("ENTROOOO")
+
+        #cambiar a video
+        if self.client_app.video_client.capture_webcam:
+            self.client_app.video_client.app.set_video_capture(False)
+            self.client_app.video_client.app.setButton("webcam/video","Webcam")
+        #cambiar a webcam
+        else:
+            try:
+                self.client_app.video_client.app.set_video_capture(True)
+                self.client_app.video_client.app.setButton("webcam/video","Video")
+            except:
+                self.video_client.app.infoBox("Info", "No es posible usar la webcam")
+        
+   
     def hold_and_resume_call(self):
         #TODO try except para el send
         #resume call 
@@ -303,7 +324,6 @@ class ReceiveVideoThread(TerminatableThread):
                 return
 
             order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
-
             self.insert_in_buffer(compressed_frame,order_number)
 
     
@@ -333,8 +353,7 @@ class ReceiveVideoThread(TerminatableThread):
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
             self.client_app.call_manager.call_buffer.push((n_order,img_tk))
- 
-    
+      
 
     def quit(self):
         self.server_sock.close()

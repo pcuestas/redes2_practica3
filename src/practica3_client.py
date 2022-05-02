@@ -239,6 +239,7 @@ class VideoClient(object):
         self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
         self.app.addButtons(["Colgar"], self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
+        self.app.addNamedButton("Webcam","webcam/video",self.buttonsCallback)
         
         self.app.addStatusbar(fields=2)
         self.app.stopSubWindow()
@@ -274,11 +275,14 @@ class VideoClient(object):
             elif button == "Lista de usuarios":
                 self.client_app.list_of_users()
 
-            elif button =="Colgar":
+            elif button == "Colgar":
                 self.client_app.call_manager.end_call()
 
-            elif button =="pause/resume":
+            elif button == "pause/resume":
                 self.client_app.call_manager.hold_and_resume_call()
+            
+            elif button == "webcam/video":
+                self.client_app.call_manager.change_video_cap()
             
         except P3Exception as e:
             self.app.infoBox("Error", e)
@@ -329,7 +333,13 @@ class VideoClient(object):
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
      
 
-
+    def set_video_capture(self,webcam: bool):
+        if webcam:
+            self.cap = cv2.VideoCapture(0)
+            self.capture_webcam = True
+        else:
+            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
+            self.capture_webcam = False
     def consume_frame(self):
 
         if not self.client_app.call_manager.in_call():
@@ -339,11 +349,12 @@ class VideoClient(object):
             n_frame,frame = self.client_app.call_manager.call_buffer.pop()
             self.app.setImageData("inc_video", frame, fmt='PhotoImage')
             self.client_app.call_manager._last_frame_shown = n_frame
+   
         except Exception as e:
-            print(e)
-            print("BUFFER VACIOOO")
-            #TODO el buffer esta vacio --> control de flujo. aumenta FPS request
+            #buffer vacio
             pass
+           
+
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
         try:
