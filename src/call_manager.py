@@ -42,6 +42,7 @@ class CallManager(object):
         self._send_fps = None
         self._send_order_number = None
         self._resolution = None
+        self._last_frame_shown = -1
             #TODO buffer de frames:
         self.call_buffer = CircularBuffer(100)
 
@@ -79,7 +80,7 @@ class CallManager(object):
 
     def set_send_fps(self, fps=50):
         self._send_fps = fps
-        self.client_app.video_client.app.setPollTime( 1000 / fps)
+        self.client_app.video_client.app.setPollTime( 1000 // fps)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
     def set_image_resolution(self, resolution="MEDIUM"):
@@ -301,9 +302,9 @@ class ReceiveVideoThread(TerminatableThread):
                 self.quit()
                 return
 
-            order_number,timestamp,resolution,fps,video = self.split_data(data)
+            order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
 
-            self.modify_subWindow(video)
+            self.insert_in_buffer(compressed_frame,order_number)
 
     
     def split_data(self,data):
@@ -321,13 +322,18 @@ class ReceiveVideoThread(TerminatableThread):
         # despertar al hilo de recv si fuera necesario
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
             s.sendto(b'1',(self.client_app.ds_client.ip_address, self.server_port))
-        
 
-    def modify_subWindow(self,video):
-        decimg = cv2.imdecode(np.frombuffer(video,np.uint8), 1)
-        cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
-        img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
-        self.client_app.video_client.app.setImageData("inc_video", img_tk, fmt='PhotoImage')
+    
+
+    def insert_in_buffer(self,frame,order_number):
+        n_order = int(order_number)
+        'Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'
+        if n_order > self.client_app.call_manager._last_frame_shown:
+            decimg = cv2.imdecode(np.frombuffer(frame,np.uint8), 1)
+            cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
+            img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
+            self.client_app.call_manager.call_buffer.push((n_order,img_tk))
+ 
     
 
     def quit(self):

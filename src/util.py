@@ -78,7 +78,7 @@ class CircularBuffer():
         self._len = 0
         self._maxsize = maxsize
 
-    def push(self, elem):
+    def push(self,elem):
         '''
         Inserta un elemento a la cola FIFO: 
         elem=(priority,data)
