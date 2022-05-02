@@ -39,7 +39,7 @@ class CallManager(object):
         self._can_i_resume = False
 
         #gestión de flujo
-        self._fps = None
+        self._send_fps = None
         self._order_number = None
         self._resolution = None
             #TODO buffer de frames:
@@ -49,7 +49,7 @@ class CallManager(object):
         self.client_app.init_call_window()
   
 
-        self.set_FPS()
+        self.set_send_fps()
         self._order_number = 0
         self._resolution = resolution
         self.client_app.video_client.setImageResolution(resolution)
@@ -69,16 +69,16 @@ class CallManager(object):
         if self.send_data_socket and not self._pause:
             header = self.build_header()
             self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr,self._peer.udp_port))
-            self.client_app.video_client.update_status_bar(self._resolution,self._fps)
+            self.client_app.video_client.update_status_bar(self._resolution,self._send_fps)
             self._order_number+=1
 
     def build_header(self):
         'Construye la cabcera y la devuelve como una cadena de bytes'
         return bytes(str(self._order_number)+"#"+str(time.time())+"#" \
-                + self._resolution+"#"+str(self._fps)+"#",'utf-8')
+                + self._resolution+"#"+str(self._send_fps)+"#",'utf-8')
 
-    def set_FPS(self,fps=50):
-        self._fps = fps
+    def set_send_fps(self,fps=50):
+        self._send_fps = fps
         self.client_app.video_client.app.setPollTime( 1000 // fps)
 
     def end_call(self, send_end_call=True):
