@@ -74,8 +74,6 @@ class CircularBuffer():
     '''
     def __init__(self, maxsize):
         self._queue = PriorityQueue()
-        self._mutex = threading.Lock()
-        self._len = 0
         self._maxsize = maxsize
 
     def push(self,elem):
@@ -83,12 +81,9 @@ class CircularBuffer():
         Inserta un elemento a la cola FIFO: 
         elem=(priority,data)
         '''
-        with self._mutex:
-            if self._len == self._maxsize:
-                self._queue.get(block=False)
-            else:
-                self._len = self._len + 1
-            self._queue.put(elem)
+        if len(self._queue.queue) == self._maxsize:
+            self._queue.get(block=False)
+        self._queue.put(elem)
 
     def pop(self):
         '''
@@ -96,40 +91,37 @@ class CircularBuffer():
         Devuelve la dupla (prioridad, data) en caso de que no esté vacío
         el buffer. Devuelve None si está vacío.
         '''
-        if self._len:
-            with self._mutex:
-                self._len -= 1
-                return self._queue.get(block=False)
-        else:
-            return None
+        if not self._queue.empty:
+            return self._queue.get(block=False)
+        return None
     
     def full(self):
         '''True si está lleno, False si no.'''
-        return self._len == self._maxsize
+        return len(self._queue.queue) == self._maxsize
 
     def empty(self):    
         '''True si está vacío, False si no.'''
-        return self._len == 0
+        return self._queue.empty
 
     def clear(self):
         '''Vacía el buffer'''
-        self._len = 0
         self._queue = PriorityQueue()
     
-    def set_maxlen(self, maxsize):
-        with self._mutex:
-            self._maxsize = maxsize
-            new_len = min(self._len, maxsize)
-            discard = self._len - new_len 
-            self._len = new_len
-            for _ in range(discard):
+    def set_maxsize(self, maxsize):
+        self._maxsize = maxsize
+        if len(self._queue.queue) > maxsize:
+            for _ in range(len(self._queue.queue) - maxsize):
                 self._queue.get(block=False)
+    
+    @property
+    def len(self):
+        return len(self._queue.queue)
 
     def __str__(self):
         return \
               '(' + str(self._queue.queue)              \
-            + ', len='+ str(self._len)                  \
-            + ', maxsize=' + str(self._maxsize)   \
+            + ', len='+ str(len(self._queue.queue))     \
+            + ', maxsize=' + str(self._maxsize)         \
             + ')'
 
 def valid_port(port):

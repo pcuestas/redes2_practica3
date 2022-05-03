@@ -90,7 +90,7 @@ class CallManager(object):
         self._send_fps = fps
         self.client_app.video_client.app.setPollTime( 1000 // fps)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
-        self.call_buffer.set_maxlen(fps*4)
+        self.call_buffer.set_maxsize(fps*4)
 
     def set_image_resolution(self, resolution="HIGH"):
         self._resolution = resolution
@@ -176,8 +176,8 @@ class CallManager(object):
         if not self.in_call():
             return
 
-        #if self.call_buffer._len < (self._send_fps / 4):
-        #    return 
+        if self.call_buffer.len < (self._send_fps / 4):
+            return 
 
         try:
             order_number, timestamp, resolution, fps, frame = self.call_buffer.pop()
