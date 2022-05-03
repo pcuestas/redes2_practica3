@@ -168,9 +168,9 @@ class CallManager(object):
             return
 
         try:
-            n_frame,frame = self.call_buffer.pop()
+            order_number, timestamp, resolution, fps, frame = self.call_buffer.pop()
             self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
-            self._last_frame_shown = n_frame
+            self._last_frame_shown = order_number
    
         except Exception as e:
             #buffer vacio
@@ -337,7 +337,7 @@ class ReceiveVideoThread(TerminatableThread):
                 return
 
             order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
-            self.insert_in_buffer(compressed_frame,order_number)
+            self.insert_in_buffer(compressed_frame, int(order_number), float(timestamp), resolution, fps)
 
     
     def split_data(self,data):
@@ -358,14 +358,14 @@ class ReceiveVideoThread(TerminatableThread):
 
     
 
-    def insert_in_buffer(self,frame,order_number):
-        n_order = int(order_number)
+    def insert_in_buffer(self, compressed_frame, order_number:int, timestamp, resolution, fps):
+        
         'Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'
-        if n_order > self.client_app.call_manager._last_frame_shown:
-            decimg = cv2.imdecode(np.frombuffer(frame,np.uint8), 1)
+        if order_number > self.client_app.call_manager._last_frame_shown:
+            decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
-            self.client_app.call_manager.call_buffer.push((n_order,img_tk))
+            self.client_app.call_manager.call_buffer.push((order_number, timestamp, resolution, fps, img_tk))
       
 
     def quit(self):
