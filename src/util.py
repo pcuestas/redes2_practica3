@@ -43,7 +43,7 @@ class TCP():
         except OSError as e:
             raise SocketError(e)
             
-    def recvall(sock, timeout_seconds=1.0):
+    def recvall(sock, timeout_seconds=0.5):
         BUFF_SIZE = 4096 # 4 KiB
         data = b''
 

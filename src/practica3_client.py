@@ -5,6 +5,7 @@ from call_manager import CallManager
 import cv2
 import os 
 import re 
+import numpy as np
 
 import listener
 from ds_client import DSClient, DSException
@@ -104,11 +105,11 @@ class ClientApplication(object):
 
         self.video_client.app.addLabel("lr1", "Puerto TCP:")
         self.video_client.app.addEntry("tcpp")
-        self.video_client.app.setEntry("tcpp","11000")
+        self.video_client.app.setEntry("tcpp", str(np.random.randint(4000, 11000)))
 
         self.video_client.app.addLabel("lr2", "Puerto UDP:")
         self.video_client.app.addEntry("udpp")
-        self.video_client.app.setEntry("udpp","8000")
+        self.video_client.app.setEntry("udpp", str(np.random.randint(4000, 11000)))
 
         self.video_client.app.addLabel("lr3", "Nick:")
         self.video_client.app.addEntry("nick")
