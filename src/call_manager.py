@@ -33,8 +33,7 @@ class CallManager(object):
         # usuario con el que se está interaccionando
         self._in_call_mutex = threading.Lock()
         self._peer = None
-        #Flags que indican si se está esperando llamada o en llamada 
-        self._waiting_call_response = False
+        #Flags que indican si se está en llamada/pausa 
         self._in_call = False
         self._pause = False
         self._can_i_resume = False
@@ -93,7 +92,7 @@ class CallManager(object):
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
         self.call_buffer.set_maxlen(fps*4)
 
-    def set_image_resolution(self, resolution="MEDIUM"):
+    def set_image_resolution(self, resolution="HIGH"):
         self._resolution = resolution
         self.client_app.video_client.setImageResolution(resolution)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
@@ -177,8 +176,8 @@ class CallManager(object):
         if not self.in_call():
             return
 
-        if self.call_buffer._len < (self._send_fps / 4):
-            return 
+        #if self.call_buffer._len < (self._send_fps / 4):
+        #    return 
 
         try:
             order_number, timestamp, resolution, fps, frame = self.call_buffer.pop()
@@ -225,7 +224,6 @@ class CallManager(object):
         if self.in_call():
             return #TODO mansaje 
 
-        self.set_waiting_call_response(True)
         self.set_peer(peer)
         try:
             self.make_call(
@@ -234,7 +232,6 @@ class CallManager(object):
                 peer.tcp_port
             )
         except P3Exception as e :
-            self.set_waiting_call_response(False)
             self.set_peer(None)
             self.client_app.video_client.app.infoBox("Info", f"No se pudo conectar con {peer.nick}.\n {e}")
     
@@ -246,12 +243,6 @@ class CallManager(object):
             sock.close()
             return 
 
-        if not self.waiting_call_response():
-            # no espero respuesta, ignoro mensaje
-            return 
-
-        # es justo de quien esperamos llamada:
-        self.set_waiting_call_response(False)
         self._peer.udp_port = int(udp_port) 
         self.init_call(self._peer, sock)
 
@@ -259,11 +250,6 @@ class CallManager(object):
         
         sock.close()
 
-        if not self.waiting_call_response():
-            # no espero respuesta, ignoro mensaje
-            return
-
-        self.set_waiting_call_response(False)
         self.set_peer(None)
         self.client_app.video_client.app.infoBox("Info", f"{nick} ha rechazado la llamada.")
 
@@ -271,11 +257,7 @@ class CallManager(object):
         
         sock.close()
 
-        if not self.waiting_call_response():
-            # no espero respuesta, ignoro mensaje
-            return
         nick = self._peer.nick
-        self.set_waiting_call_response(False)
         self.set_peer(None)
         self.client_app.video_client.app.infoBox("Info", f"{nick} está ocupado.")
 
@@ -295,7 +277,11 @@ class CallManager(object):
         self._can_i_resume = False
         self._pause = True
         
-        self.client_app.video_client.app.infoBox("Info", f"{nick} ha puesto la llamada en hold.", parent = "CallWindow")
+        self.client_app.video_client.app.infoBox(
+            "Info", 
+            f"{nick} ha puesto la llamada en hold.", 
+            parent="CallWindow"
+        )
 
     def receive_call_resume(self, nick):
         if not self.in_call():
@@ -304,16 +290,7 @@ class CallManager(object):
         self._pause = False
         self._can_i_resume = False
 
-    # getters y setters de atributos protegidos por mutex
-    def set_waiting_call_response(self, val):
-        with self._in_call_mutex:
-            self._waiting_call_response = val 
-
-    def waiting_call_response(self):
-        with self._in_call_mutex:
-            val = True == self._waiting_call_response
-            return val
-
+    # getters y setters de atributos
     def set_in_call(self, val):
         with self._in_call_mutex:
             self._in_call = val
@@ -340,16 +317,15 @@ class CallManager(object):
         try:
             print(f"Llamando con mensaje '{msg}', a ip={ip}, port={tcp_port}")
             control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            control_sock.connect((ip, tcp_port))
-
-            TCP.send(msg, control_sock)
-
+            
             control_sock.settimeout(30) # 30 segundos esperando llamada, no más
-
-
+            
+            control_sock.connect((ip, tcp_port))            
+            TCP.send(msg, control_sock)
             answer_msg = control_sock.recv(2 << 12).decode(encoding="utf-8")
 
             self.process_control_message(answer_msg, control_sock)  
+
         except socket.error:
             raise P3Exception("El usuario no ha respondido a la llamada.")
 

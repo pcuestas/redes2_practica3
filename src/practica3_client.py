@@ -188,7 +188,14 @@ class ClientApplication(object):
         nick = self.video_client.app.textBox("Conexión", 
             "Introduce el nick del usuario a buscar")
         
-        if not nick: return
+        if not nick: 
+            return
+        if nick == self.ds_client.nick:
+            self.video_client.app.infoBox(
+                "Info",
+                f"Tú mismo eres el usuario {nick} (no te puedes llamar a tí mismo)."
+            )
+            return 
         
         nick, ipaddr, tcp_port, protocol = self.ds_client.query(nick)
 
