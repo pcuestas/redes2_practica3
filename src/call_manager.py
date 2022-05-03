@@ -180,13 +180,13 @@ class CallManager(object):
         #    return 
 
         try:
-            order_number, timestamp, resolution, fps, frame = self.call_buffer.pop()
+            self._last_frame_shown, timestamp, resolution, fps, frame = self.call_buffer.pop()
             self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
-            self._last_frame_shown = order_number
+            
             if float(fps) != self._send_fps:
                 self.set_send_fps(float(fps))
    
-        except Exception as e:
+        except:
             #buffer vacio
             pass
 
