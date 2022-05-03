@@ -79,7 +79,7 @@ class CallManager(object):
 
     def set_send_fps(self, fps=50):
         self._send_fps = fps
-        self.client_app.video_client.app.setPollTime( 1000 / fps)
+        self.client_app.video_client.app.setPollTime( 1000 // fps)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
     def set_image_resolution(self, resolution="MEDIUM"):
