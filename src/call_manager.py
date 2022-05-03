@@ -92,7 +92,7 @@ class CallManager(object):
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
         self.call_buffer.set_maxsize(fps*4)
 
-    def set_image_resolution(self, resolution="HIGH"):
+    def set_image_resolution(self, resolution="MEDIUM"):
         self._resolution = resolution
         self.client_app.video_client.setImageResolution(resolution)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)

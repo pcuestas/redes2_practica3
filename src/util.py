@@ -75,7 +75,6 @@ class CircularBuffer():
     '''
     def __init__(self, maxsize):
         self._queue = PriorityQueue()
-        self._mutex = threading.Lock()
         self._maxsize = maxsize
 
     def push(self,elem):
@@ -83,10 +82,9 @@ class CircularBuffer():
         Inserta un elemento a la cola FIFO: 
         elem=(priority,data)
         '''
-        with self._mutex:
-            if len(self._queue.queue) == self._maxsize:
-                self._queue.get(block=False)
-            self._queue.put(elem)
+        if len(self._queue.queue) == self._maxsize:
+            self._queue.get(block=False)
+        self._queue.put(elem)
 
     def pop(self):
         '''
@@ -94,9 +92,9 @@ class CircularBuffer():
         Devuelve la dupla (prioridad, data) en caso de que no esté vacío
         el buffer. Devuelve None si está vacío.
         '''
-        with self._mutex:
-            if len(self._queue.queue):
-                return self._queue.get(block=False)
+        try:
+            return self._queue.get(block=False)
+        except:
             return None
     
     def full(self):
@@ -109,15 +107,13 @@ class CircularBuffer():
 
     def clear(self):
         '''Vacía el buffer'''
-        with self._mutex:
-            self._queue = PriorityQueue()
+        self._queue = PriorityQueue()
     
     def set_maxsize(self, maxsize):
-        with self._mutex:
-            self._maxsize = maxsize
-            if len(self._queue.queue) > maxsize:
-                for _ in range(len(self._queue.queue) - maxsize):
-                    self._queue.get(block=False)
+        self._maxsize = maxsize
+        if len(self._queue.queue) > maxsize:
+            for _ in range(len(self._queue.queue) - maxsize):
+                self._queue.get(block=False)
     
     @property
     def len(self):
