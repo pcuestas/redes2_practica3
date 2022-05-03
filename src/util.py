@@ -43,12 +43,13 @@ class TCP():
         except OSError as e:
             raise SocketError(e)
             
-    def recvall(sock, timeout_seconds=0.5):
+    def recvall(sock:socket.socket, timeout_seconds=0.5):
         BUFF_SIZE = 4096 # 4 KiB
         data = b''
 
         try:
             if timeout_seconds: 
+                old_timeout = sock.gettimeout()
                 sock.settimeout(timeout_seconds)
 
             part = b'0' # (porque no hay do while)
@@ -61,7 +62,7 @@ class TCP():
             pass
         
         if timeout_seconds: 
-            sock.settimeout(None)
+            sock.settimeout(old_timeout)
 
         print(f"Leído: {len(data)}")
         return data
@@ -74,6 +75,7 @@ class CircularBuffer():
     '''
     def __init__(self, maxsize):
         self._queue = PriorityQueue()
+        self._mutex = threading.Lock()
         self._maxsize = maxsize
 
     def push(self,elem):
@@ -81,9 +83,10 @@ class CircularBuffer():
         Inserta un elemento a la cola FIFO: 
         elem=(priority,data)
         '''
-        if len(self._queue.queue) == self._maxsize:
-            self._queue.get(block=False)
-        self._queue.put(elem)
+        with self._mutex:
+            if len(self._queue.queue) == self._maxsize:
+                self._queue.get(block=False)
+            self._queue.put(elem)
 
     def pop(self):
         '''
@@ -91,9 +94,10 @@ class CircularBuffer():
         Devuelve la dupla (prioridad, data) en caso de que no esté vacío
         el buffer. Devuelve None si está vacío.
         '''
-        if not self._queue.empty:
-            return self._queue.get(block=False)
-        return None
+        with self._mutex:
+            if len(self._queue.queue):
+                return self._queue.get(block=False)
+            return None
     
     def full(self):
         '''True si está lleno, False si no.'''
@@ -101,17 +105,19 @@ class CircularBuffer():
 
     def empty(self):    
         '''True si está vacío, False si no.'''
-        return self._queue.empty
+        return not len(self._queue.queue)
 
     def clear(self):
         '''Vacía el buffer'''
-        self._queue = PriorityQueue()
+        with self._mutex:
+            self._queue = PriorityQueue()
     
     def set_maxsize(self, maxsize):
-        self._maxsize = maxsize
-        if len(self._queue.queue) > maxsize:
-            for _ in range(len(self._queue.queue) - maxsize):
-                self._queue.get(block=False)
+        with self._mutex:
+            self._maxsize = maxsize
+            if len(self._queue.queue) > maxsize:
+                for _ in range(len(self._queue.queue) - maxsize):
+                    self._queue.get(block=False)
     
     @property
     def len(self):

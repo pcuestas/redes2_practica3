@@ -176,8 +176,8 @@ class CallManager(object):
         if not self.in_call():
             return
 
-        if self.call_buffer.len < (self._send_fps / 4):
-            return 
+        #if self.call_buffer.len < (self._send_fps / 4):
+        #    return 
 
         try:
             order_number, timestamp, resolution, fps, frame = self.call_buffer.pop()
