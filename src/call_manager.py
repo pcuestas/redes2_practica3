@@ -162,6 +162,19 @@ class CallManager(object):
         if self.in_call():
             self.end_call()
         
+    def consume_frame(self):
+
+        if not self.in_call():
+            return
+
+        try:
+            n_frame,frame = self.call_buffer.pop()
+            self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
+            self._last_frame_shown = n_frame
+   
+        except Exception as e:
+            #buffer vacio
+            pass
 
     # funciones llamadas por el listener
     def receive_call(self, ipaddr, sock, nick, udp_port):

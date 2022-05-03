@@ -319,7 +319,7 @@ class VideoClient(object):
             
         self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
-        self.app.registerEvent(self.consume_frame)
+        self.app.registerEvent(self.client_app.call_manager.consume_frame)
 
         # Añadir los botones
         self.app.addButtons(
@@ -339,21 +339,7 @@ class VideoClient(object):
             self.capture_webcam = True
         else:
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
-            self.capture_webcam = False
-    def consume_frame(self):
-
-        if not self.client_app.call_manager.in_call():
-            return
-
-        try:
-            n_frame,frame = self.client_app.call_manager.call_buffer.pop()
-            self.app.setImageData("inc_video", frame, fmt='PhotoImage')
-            self.client_app.call_manager._last_frame_shown = n_frame
-   
-        except Exception as e:
-            #buffer vacio
-            pass
-           
+            self.capture_webcam = False           
 
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
