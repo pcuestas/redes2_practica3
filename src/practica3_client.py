@@ -265,7 +265,9 @@ class VideoClient(object):
         self.app.stopTab()
 
         self.app.startTab("Recurso a enviar")
-        self.app.addLabel("c","EOEOOE")
+        self.app.addLabel("c","Select webcam or video to send")
+        self.app.addOptionBox("optionbox", ["Webcam", "videoplayback.mp4", "gif1.gif"])
+        self.app.setOptionBoxChangeFunction("optionbox", self.select_media_resource)
         self.app.stopTab()
         self.app.addStatusbar(fields=2)
 
@@ -284,6 +286,14 @@ class VideoClient(object):
 
         self.app.addButtons(["Cerrar lista"], self.buttonsCallbackListUsers)
         self.app.stopSubWindow()
+
+    def select_media_resource(self):
+        opt=self.app.getOptionBox("optionbox")
+        if opt == 'Webcam':
+            self.set_video_capture(use_webcam=True)
+        else:
+            self.set_video_capture(resource_name=opt)
+        
 
     def update_status_bar(self, resolution, fps):
         self.app.setStatusbar(f"Enviando a resolución {resolution}", 0)
@@ -368,17 +378,22 @@ class VideoClient(object):
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
      
 
-    def set_video_capture(self,webcam: bool = True, video_path="/media/videoplayback.mp4"):
-        if webcam:
-            self.cap = cv2.VideoCapture(0)
+    def set_video_capture(self,use_webcam: bool = True, resource_name="videoplayback.mp4"):
+
+        rute = "/media/"+resource_name
+         
+        if use_webcam  and not self.capture_webcam == True:
+            print("Voy a usar camara")
             self.capture_webcam = True
+            self.cap = cv2.VideoCapture(0)
             if not self.cap.isOpened():
+                capture_flag = False
                 print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
-            else: 
-                return 
-        # use video:
-        self.cap = cv2.VideoCapture(self.client_app.file(video_path))
-        self.capture_webcam = False           
+
+        else:
+            print("Voy a usar video")
+            self.capture_webcam = False
+            self.cap = cv2.VideoCapture(self.client_app.file(rute))      
 
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
