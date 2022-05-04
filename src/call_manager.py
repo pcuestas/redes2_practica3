@@ -39,6 +39,7 @@ class CallManager(object):
         self._can_i_resume = False
 
         #gestión de flujo
+        self._receive_fps = 0
         self._send_fps = None
         self._send_order_number = None
         self._resolution = None
@@ -98,7 +99,10 @@ class CallManager(object):
         self._send_fps = fps
         self.client_app.video_client.app.setPollTime(int(1000 // fps))
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
-        self.call_buffer.set_maxsize(int(fps*4))
+
+    def set_receive_fps(self, fps):
+        self._receive_fps = fps
+        self.call_buffer.set_maxsize(int(fps//2)) # 0.5 segundos de vídeo en el buffer
 
     def set_image_resolution(self, resolution="MEDIUM"):
         self._resolution = resolution
@@ -184,19 +188,22 @@ class CallManager(object):
         if not self.in_call():
             return
 
-        if self.call_buffer.len < (self._send_fps / 8):
+        if self.call_buffer.len < (self._receive_fps / 8):
             print("No hay suficiente en el buffer")
             return 
-        if self.call_buffer.len > (self._send_fps / 2):
+
+        if self.call_buffer.len > (self._receive_fps / 2):
             print("Quito del buffer, hay demasiados")
             self.call_buffer.pop()
+
         try:
             self._last_frame_shown, timestamp, resolution, fps, frame = self.call_buffer.pop()
             self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
             
-            if float(fps) != self._send_fps:
-                self.set_send_fps(float(fps))
-            self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {fps} fps; resolución: {resolution}.")
+            if float(fps) != self._receive_fps:
+                self.set_receive_fps(float(fps))
+
+            self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {fps.decode()} fps; resolución: {resolution.decode()}.")
    
         except:
             #buffer vacio
@@ -416,9 +423,9 @@ class ReceiveVideoThread(TerminatableThread):
     
 
     def insert_in_buffer(self, compressed_frame, order_number:int, timestamp, resolution, fps):
-        
         'Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'
         if order_number > self.client_app.call_manager._last_frame_shown:
+        #TODO tener en cuenta la resolución para hacer resize ?
             decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
