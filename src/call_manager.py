@@ -86,7 +86,7 @@ class CallManager(object):
         return bytes(str(self._send_order_number)+"#"+str(time.time())+"#" \
                 + self._resolution+"#"+str(self._send_fps)+"#",'utf-8')
 
-    def set_send_fps(self, fps=50):
+    def set_send_fps(self, fps=25):
         self._send_fps = fps
         self.client_app.video_client.app.setPollTime( 1000 // fps)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
@@ -315,7 +315,6 @@ class CallManager(object):
             tcp_port= el puerto de control del usuario al que se llama
         '''
         try:
-            print(f"Llamando con mensaje '{msg}', a ip={ip}, port={tcp_port}")
             control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             
             control_sock.settimeout(30) # 30 segundos esperando llamada, no más
