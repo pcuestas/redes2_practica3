@@ -157,6 +157,8 @@ class CallManager(object):
             self._can_i_resume = False
             self.client_app.video_client.app.setButton("pause/resume","Pause")
             self.send_control_msg(f"CALL_RESUME {self.client_app.ds_client.nick}")
+            #Cuando se pausa el video, vaciar el buffer
+            self.call_buffer.empty()
             
         #pause call
         elif not self._pause: 
