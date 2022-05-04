@@ -5,12 +5,14 @@ from call_manager import CallManager
 import cv2
 import os 
 import re 
+import numpy as np
 
 import listener
 from ds_client import DSClient, DSException
 from exceptions import P3Exception
 from call_manager import User
 from util import *
+
 
 CAM_SIZE = (640, 480)
 
@@ -103,11 +105,11 @@ class ClientApplication(object):
 
         self.video_client.app.addLabel("lr1", "Puerto TCP:")
         self.video_client.app.addEntry("tcpp")
-        self.video_client.app.setEntry("tcpp","11000")
+        self.video_client.app.setEntry("tcpp", str(np.random.randint(4000, 11000)))
 
         self.video_client.app.addLabel("lr2", "Puerto UDP:")
         self.video_client.app.addEntry("udpp")
-        self.video_client.app.setEntry("udpp","8000")
+        self.video_client.app.setEntry("udpp", str(np.random.randint(4000, 11000)))
 
         self.video_client.app.addLabel("lr3", "Nick:")
         self.video_client.app.addEntry("nick")
@@ -186,7 +188,14 @@ class ClientApplication(object):
         nick = self.video_client.app.textBox("Conexión", 
             "Introduce el nick del usuario a buscar")
         
-        if not nick: return
+        if not nick: 
+            return
+        if nick == self.ds_client.nick:
+            self.video_client.app.infoBox(
+                "Info",
+                f"Tú mismo eres el usuario {nick} (no te puedes llamar a tí mismo)."
+            )
+            return 
         
         nick, ipaddr, tcp_port, protocol = self.ds_client.query(nick)
 
@@ -238,6 +247,7 @@ class VideoClient(object):
         self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
         self.app.addButtons(["Colgar"], self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
+        self.app.addNamedButton("Webcam","webcam/video",self.buttonsCallback)
         
         self.app.addStatusbar(fields=2)
         self.app.stopSubWindow()
@@ -273,11 +283,14 @@ class VideoClient(object):
             elif button == "Lista de usuarios":
                 self.client_app.list_of_users()
 
-            elif button =="Colgar":
+            elif button == "Colgar":
                 self.client_app.call_manager.end_call()
 
-            elif button =="pause/resume":
+            elif button == "pause/resume":
                 self.client_app.call_manager.hold_and_resume_call()
+            
+            elif button == "webcam/video":
+                self.client_app.call_manager.change_video_cap()
             
         except P3Exception as e:
             self.app.infoBox("Error", e)
@@ -314,6 +327,7 @@ class VideoClient(object):
             
         self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
+        self.app.registerEvent(self.client_app.call_manager.consume_frame)
 
         # Añadir los botones
         self.app.addButtons(
@@ -326,6 +340,15 @@ class VideoClient(object):
         # Barra de estado
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
      
+
+    def set_video_capture(self,webcam: bool):
+        if webcam:
+            self.cap = cv2.VideoCapture(0)
+            self.capture_webcam = True
+        else:
+            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
+            self.capture_webcam = False           
+
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
         try:

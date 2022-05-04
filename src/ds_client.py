@@ -3,7 +3,7 @@ from ipaddress import ip_address
 import socket
 from exceptions import DSException
 from util import TCP
-
+import netifaces as ni
 
 class DSClient():
 

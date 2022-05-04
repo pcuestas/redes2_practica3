@@ -27,13 +27,13 @@ class CallManager(object):
         self.client_app = client_app
         #self.send_video_thread = None
         self.receive_video_thread = None
+        self.receive_control_commands_thread = None
         self.send_data_socket = None
 
         # usuario con el que se está interaccionando
         self._in_call_mutex = threading.Lock()
         self._peer = None
-        #Flags que indican si se está esperando llamada o en llamada 
-        self._waiting_call_response = False
+        #Flags que indican si se está en llamada/pausa 
         self._in_call = False
         self._pause = False
         self._can_i_resume = False
@@ -42,15 +42,18 @@ class CallManager(object):
         self._send_fps = None
         self._send_order_number = None
         self._resolution = None
-            #TODO buffer de frames:
+        self._n_frame_mutex = threading.Lock()
+        self._last_frame_shown = -1
+            #TODO buffer de frames
         self.call_buffer = CircularBuffer(100)
 
-    def init_call(self, peer: User):
+    def init_call(self, peer: User, control_sock:socket.socket):
         self.client_app.init_call_window()
   
         # fps y resolución por defecto
         self.set_send_fps()
         self.set_image_resolution()
+        #TODO preguntar: self.client_app.video_client.set_video_capture(False)
 
         self._send_order_number = 0
 
@@ -58,16 +61,22 @@ class CallManager(object):
 
         self.set_in_call(True)
         self.set_peer(peer)
+        self._pause = False
 
+        # lanzar los hilos de la llamada
         self.receive_video_thread = ReceiveVideoThread(
             self.client_app._udp_port, self.client_app
         )
         self.receive_video_thread.start()
+        self.receive_control_commands_thread = ReceiveControlCommandsThread(
+            control_sock, self
+        )
+        self.receive_control_commands_thread.start()
 
 
     ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
-        if self.send_data_socket and not self._pause:
+        if self.send_data_socket and not self._pause and self._in_call:
             header = self.build_header()
             self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
             self._send_order_number += 1
@@ -77,10 +86,11 @@ class CallManager(object):
         return bytes(str(self._send_order_number)+"#"+str(time.time())+"#" \
                 + self._resolution+"#"+str(self._send_fps)+"#",'utf-8')
 
-    def set_send_fps(self, fps=50):
+    def set_send_fps(self, fps=25):
         self._send_fps = fps
         self.client_app.video_client.app.setPollTime( 1000 // fps)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
+        self.call_buffer.set_maxsize(fps*4)
 
     def set_image_resolution(self, resolution="MEDIUM"):
         self._resolution = resolution
@@ -88,30 +98,49 @@ class CallManager(object):
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
     def end_call(self, send_end_call=True):
+        self.set_in_call(False)
 
         self.client_app.end_call_window()
 
-        self.receive_video_thread.end()
-        #TODO !!!!
-        self.receive_video_thread.join(0.5)
-        self.receive_video_thread = None
-
-        self.send_data_socket.close()
-        self.send_data_socket = None
-
         if send_end_call:
             try: 
-                TCP.create_socket_and_send(
-                    f"CALL_END {self.client_app.ds_client.nick}",
-                    ip=self._peer.ipaddr,
-                    tcp_port=self._peer.tcp_port
+                self.send_control_msg(
+                    f"CALL_END {self.client_app.ds_client.nick}"
                 )
             except P3Exception as e:
                 pass
         
-        self.set_peer(None)
-        self.set_in_call(False)
+        self.receive_video_thread.end()
+        #TODO !!!!
+        self.receive_video_thread.join(0.4)
+        self.receive_video_thread = None
 
+        self.receive_control_commands_thread.end()
+        self.receive_control_commands_thread.join(0.7)
+        self.receive_control_commands_thread = None
+
+        self.send_data_socket.close()
+        self.send_data_socket = None
+        self.set_peer(None)
+
+    
+    def change_video_cap(self):
+        #TODO esta función fuera de aquí
+        print("ENTROOOO")
+
+        #cambiar a video
+        if self.client_app.video_client.capture_webcam:
+            self.client_app.video_client.set_video_capture(False)
+            self.client_app.video_client.app.setButton("webcam/video","Webcam")
+        #cambiar a webcam
+        else:
+            try:
+                self.client_app.video_client.set_video_capture(True)
+                self.client_app.video_client.app.setButton("webcam/video","Video")
+            except:
+                self.video_client.app.infoBox("Info", "No es posible usar la webcam")
+        
+   
     def hold_and_resume_call(self):
         #TODO try except para el send
         #resume call 
@@ -119,18 +148,14 @@ class CallManager(object):
             self._pause = False
             self._can_i_resume = False
             self.client_app.video_client.app.setButton("pause/resume","Pause")
-            TCP.create_socket_and_send(f"CALL_RESUME {self.client_app.ds_client.nick}",
-                                        ip=self._peer.ipaddr,
-                                        tcp_port=self._peer.tcp_port)
+            self.send_control_msg(f"CALL_RESUME {self.client_app.ds_client.nick}")
             
         #pause call
         elif not self._pause: 
             self._pause = True
             self._can_i_resume = True
             self.client_app.video_client.app.setButton("pause/resume","Resume")
-            TCP.create_socket_and_send(f"CALL_HOLD {self.client_app.ds_client.nick}",
-                                        ip=self._peer.ipaddr,
-                                        tcp_port=self._peer.tcp_port)
+            self.send_control_msg(f"CALL_HOLD {self.client_app.ds_client.nick}")
 
     def configure_send_socket(self):
         self.send_data_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -139,21 +164,46 @@ class CallManager(object):
         #TODO matar hilos, esta función se llama cuando la app se cierra
         if self.in_call():
             self.end_call()
-        
+
+    def send_control_msg(self, msg:str):
+        try:
+            TCP.send(msg, self.receive_control_commands_thread.control_socket)
+        except P3Exception as e:
+            pass
+
+    def consume_frame(self):
+
+        if not self.in_call():
+            return
+
+        #if self.call_buffer.len < (self._send_fps / 4):
+        #    return 
+
+        try:
+            self._last_frame_shown, timestamp, resolution, fps, frame = self.call_buffer.pop()
+            self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
+            
+            if float(fps) != self._send_fps:
+                self.set_send_fps(float(fps))
+   
+        except:
+            #buffer vacio
+            pass
 
     # funciones llamadas por el listener
     def receive_call(self, ipaddr, sock, nick, udp_port):
         '''Recibo llamada de un usuario'''
         if self.in_call():
-            print("Ocupadoooo")
+            print("Mando CALL_BUSY")
             TCP.send("CALL_BUSY", sock)
+            sock.close()
             return 
 
         nick, nickaddr, tcp_port, protocol = self.client_app.ds_client.query(nick)
         
         if nickaddr != ipaddr:
             print(f"Fallan ips {nickaddr}=={ipaddr}")
-            #return 
+            #TODO return 
 
         try:
             if self.client_app.video_client.app.questionBox(
@@ -162,58 +212,52 @@ class CallManager(object):
             ):
                 peer = User(nick, nickaddr, int(udp_port), int(tcp_port))
                 TCP.send(f"CALL_ACCEPTED {self.client_app.ds_client.nick} {self.client_app._udp_port}", sock)
-                self.init_call(peer)
+                self.init_call(peer, sock)
             else:
                 TCP.send(f"CALL_DENIED {self.client_app.ds_client.nick}", sock)
+                sock.close()
         except P3Exception as e:
             pass
 
     def call(self, peer):
         '''Llamar al usuario peer'''
-        self.set_waiting_call_response(True)
+        if self.in_call():
+            return #TODO mansaje 
+
         self.set_peer(peer)
         try:
-            self.client_app.listener_thread.request_peer(
+            self.make_call(
                 f"CALLING {self.client_app.ds_client.nick} {self.client_app._udp_port}",
                 peer.ipaddr,
                 peer.tcp_port
             )
         except P3Exception as e :
-            self.set_waiting_call_response(False)
             self.set_peer(None)
-            self.video_client.app.infoBox("Info", f"No se pudo conectar con {peer.nick}.\n {e}")
+            self.client_app.video_client.app.infoBox("Info", f"No se pudo conectar con {peer.nick}.\n {e}")
     
     def call_accepted(self, sock, nick, udp_port):
         '''Me han aceptado llamada'''
         if self.in_call():
             # para evitar errores
             TCP.send("CALL_BUSY", sock)
+            sock.close()
             return 
 
-        if not self.waiting_call_response():
-            # no espero respuesta, ignoro mensaje
-            return 
-
-        # es justo de quien esperamos llamada:
-        self.set_waiting_call_response(False)
         self._peer.udp_port = int(udp_port) 
-        self.init_call(self._peer)
+        self.init_call(self._peer, sock)
 
-    def receive_call_denied(self, nick):
-        if not self.waiting_call_response():
-            # no espero respuesta, ignoro mensaje
-            return
+    def receive_call_denied(self, nick, sock):
+        
+        sock.close()
 
-        self.set_waiting_call_response(False)
         self.set_peer(None)
         self.client_app.video_client.app.infoBox("Info", f"{nick} ha rechazado la llamada.")
 
-    def receive_call_busy(self, nick):
-        if not self.waiting_call_response():
-            # no espero respuesta, ignoro mensaje
-            return
+    def receive_call_busy(self, sock):
+        
+        sock.close()
 
-        self.set_waiting_call_response(False)
+        nick = self._peer.nick
         self.set_peer(None)
         self.client_app.video_client.app.infoBox("Info", f"{nick} está ocupado.")
 
@@ -233,53 +277,87 @@ class CallManager(object):
         self._can_i_resume = False
         self._pause = True
         
-        self.client_app.video_client.app.infoBox("Info", f"{nick} ha puesto la llamada en hold.", parent = "CallWindow")
+        self.client_app.video_client.app.infoBox(
+            "Info", 
+            f"{nick} ha puesto la llamada en hold.", 
+            parent="CallWindow"
+        )
 
     def receive_call_resume(self, nick):
         if not self.in_call():
             # no estoy en llamada, ignoro mensaje
             return 
-        
-        #TODO reanudar llamada
         self._pause = False
         self._can_i_resume = False
 
-    #def correct_nick_addr(self, nick, ipaddr):
-    #    return (nick == self._peer.nick) and (ipaddr == self._peer.ipaddr)
-
-    # getters y setters de atributos protegidos por mutex
-    def set_waiting_call_response(self, val):
-        self._in_call_mutex.acquire()
-        try:
-            self._waiting_call_response = val 
-        finally:
-            self._in_call_mutex.release()
-
-    def waiting_call_response(self):
-        self._in_call_mutex.acquire()
-        val = True == self._waiting_call_response
-        self._in_call_mutex.release()
-        return val
-
+    # getters y setters de atributos
     def set_in_call(self, val):
-        self._in_call_mutex.acquire()
-        self._in_call = val
-        self._in_call_mutex.release()
+        with self._in_call_mutex:
+            self._in_call = val
 
     def in_call(self):
-        self._in_call_mutex.acquire()
-        val = True == self._in_call
-        self._in_call_mutex.release()
-        return val
+        with self._in_call_mutex:
+            val = True == self._in_call
+            return val
 
     def set_peer(self, peer):
-        #self._in_call_mutex.acquire()
         self._peer = peer
-        #self._in_call_mutex.release()
 
     def peer(self):
         return self._peer
-       
+    
+    # mensajes de control
+    def make_call(self, msg, ip, tcp_port):
+        '''
+            Llama a un usuario y gestiona la llamada.
+            msg="CALLING nick udpport", 
+            ip= la ip del usuario
+            tcp_port= el puerto de control del usuario al que se llama
+        '''
+        try:
+            control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            
+            control_sock.settimeout(30) # 30 segundos esperando llamada, no más
+            
+            control_sock.connect((ip, tcp_port))            
+            TCP.send(msg, control_sock)
+            answer_msg = control_sock.recv(2 << 12).decode(encoding="utf-8")
+
+            self.process_control_message(answer_msg, control_sock)  
+
+        except socket.error:
+            raise P3Exception("El usuario no ha respondido a la llamada.")
+
+    def process_control_message(self, petition, connection_socket=None, addr=None):
+        
+        print(f"Call manager procesa: '{petition}'")
+        
+        petition_list = petition.split(' ')
+
+        try: 
+            msg, nick, udp_port = petition_list
+
+            if msg == "CALLING":
+                self.receive_call(addr, connection_socket, nick, udp_port)
+            
+            elif msg == "CALL_ACCEPTED":
+                self.call_accepted(connection_socket, nick, udp_port)
+        except ValueError:
+            try:
+                msg, nick = petition_list
+                if msg == "CALL_DENIED":
+                    self.receive_call_denied(nick, connection_socket)
+                elif msg == "CALL_END":
+                    self.receive_call_end(nick)
+                elif msg == "CALL_HOLD":
+                    self.receive_call_hold(nick)
+                elif msg == "CALL_RESUME":
+                    self.receive_call_resume(nick)
+            except ValueError:
+                msg = petition_list[0]
+                if msg == "CALL_BUSY":
+                    self.receive_call_busy(connection_socket)
+
 
 
 class ReceiveVideoThread(TerminatableThread):
@@ -301,9 +379,8 @@ class ReceiveVideoThread(TerminatableThread):
                 self.quit()
                 return
 
-            order_number,timestamp,resolution,fps,video = self.split_data(data)
-
-            self.modify_subWindow(video)
+            order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
+            self.insert_in_buffer(compressed_frame, int(order_number), float(timestamp), resolution, fps)
 
     
     def split_data(self,data):
@@ -321,18 +398,43 @@ class ReceiveVideoThread(TerminatableThread):
         # despertar al hilo de recv si fuera necesario
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
             s.sendto(b'1',(self.client_app.ds_client.ip_address, self.server_port))
-        
 
-    def modify_subWindow(self,video):
-        decimg = cv2.imdecode(np.frombuffer(video,np.uint8), 1)
-        cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
-        img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
-        self.client_app.video_client.app.setImageData("inc_video", img_tk, fmt='PhotoImage')
     
+
+    def insert_in_buffer(self, compressed_frame, order_number:int, timestamp, resolution, fps):
+        
+        'Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'
+        if order_number > self.client_app.call_manager._last_frame_shown:
+            decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
+            cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
+            img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
+            self.client_app.call_manager.call_buffer.push((order_number, timestamp, resolution, fps, img_tk))
+      
 
     def quit(self):
         self.server_sock.close()
         print("Hilo que recibe acaba")
 
-    def end_call(self, message):
-        return message.decode()[:8]=="CALL_END"
+class ReceiveControlCommandsThread(TerminatableThread):
+    def __init__(self, control_socket:socket.socket, call_manager: CallManager):
+        super().__init__()
+        self.control_socket = control_socket
+        self.call_manager = call_manager
+
+    def run(self):
+        self.control_socket.settimeout(0.5)
+        while 1:
+            try:
+                msg = self.control_socket.recv(2 << 12).decode(encoding="utf-8")
+                if len(msg) > 0:
+                    self.call_manager.process_control_message(msg)
+            except socket.timeout:
+                pass
+            finally: # para el timeout
+                if self.stopped():
+                    self.quit()
+                    return
+
+    def quit(self):
+        self.control_socket.close()
+        print("Hilo de recepción de control acaba")
