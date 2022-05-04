@@ -54,6 +54,7 @@ class CallManager(object):
         # fps y resolución por defecto
         self.set_send_fps()
         self.set_image_resolution()
+        self.reset_variables()
         #TODO preguntar: self.client_app.video_client.set_video_capture(False)
 
         self._send_order_number = 0
@@ -74,6 +75,11 @@ class CallManager(object):
         )
         self.receive_control_commands_thread.start()
 
+    def reset_variables(self):
+        self.call_buffer.clear()
+        self._in_call = False
+        self._pause = False
+        self._can_i_resume = False
 
     ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
