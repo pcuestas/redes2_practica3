@@ -194,7 +194,7 @@ class CallManager(object):
             print("No hay suficiente en el buffer")
             return 
 
-        if self.call_buffer.len > (self._receive_fps / 2):
+        if self.call_buffer.len > (self._receive_fps / 2) > 0:
             print("Quito del buffer, hay demasiados")
             self.call_buffer.pop()
 
@@ -338,7 +338,7 @@ class CallManager(object):
         try:
             control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             
-            control_sock.settimeout(30) # 30 segundos esperando llamada, no más
+            control_sock.settimeout(20) # 20 segundos esperando llamada, no más
             
             control_sock.connect((ip, tcp_port))            
             TCP.send(msg, control_sock)
