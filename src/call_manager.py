@@ -433,7 +433,7 @@ class ReceiveVideoThread(TerminatableThread):
     def insert_in_buffer(self, compressed_frame, order_number:int, timestamp, resolution, fps):
         'Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'
         if order_number > self.client_app.call_manager._last_frame_shown:
-        #TODO tener en cuenta la resolución para hacer resize ?
+        #TODO tener en cuenta la resolución para hacer resize !!!!!!!! la resolucion es STRING o pixles
             decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))

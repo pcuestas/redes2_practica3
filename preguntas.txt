@@ -8,6 +8,7 @@ hacer cache de nick ip port de los ya buscados
 PREGUNTAS:
 
 - campo resolucion cabecera 700x200 vs 1627 bytes
+- #TODO tener en cuenta la resolución para hacer resize !!!!!!!! la resolucion es STRING o pixles
 - sockets para comandos de control
 
 
