@@ -140,23 +140,6 @@ class CallManager(object):
         self.send_data_socket.close()
         self.send_data_socket = None
         self.set_peer(None)
-
-    
-    def change_video_cap(self):
-        #TODO esta función fuera de aquí
-        print("ENTROOOO")
-
-        #cambiar a video
-        if self.client_app.video_client.capture_webcam:
-            self.client_app.video_client.set_video_capture(False)
-            self.client_app.video_client.app.setButton("webcam/video","Webcam")
-        #cambiar a webcam
-        else:
-            try:
-                self.client_app.video_client.set_video_capture(True)
-                self.client_app.video_client.app.setButton("webcam/video","Video")
-            except:
-                self.video_client.app.infoBox("Info", "No es posible usar la webcam")
         
    
     def hold_and_resume_call(self):

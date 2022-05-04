@@ -58,7 +58,7 @@ class ClientApplication(object):
 
     def start_after_register(self):
         # pregunta si quiere webcam
-        capture_flag = self.video_client.app.yesNoBox("WebCam", "¿Usar cámara?")
+        #capture_flag = self.video_client.app.yesNoBox("WebCam", "¿Usar cámara?")
 
         #Inicia el hilo que escucha peticiones
         self.listener_thread.start()
@@ -66,7 +66,7 @@ class ClientApplication(object):
         # iniciar el VideoClient - la ejecución se queda 
         # aquí hasta que se salga del video client
         self.video_client.app.setLabel("title",f"{self.ds_client.nick} - Cliente Multimedia P2P ")
-        self.video_client.start_after_register(capture_flag)
+        self.video_client.start_after_register()
 
     def initial_register_button(self, button):
         if button == "Cerrar":
@@ -254,7 +254,6 @@ class VideoClient(object):
         self.app.startTab("Acciones")
         self.app.addButtons(["Colgar"], self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
-        self.app.addNamedButton("Webcam","webcam/video",self.buttonsCallback)
         self.app.stopTab()
 
         self.app.startTab("Ajustar resolución de envío")
@@ -320,9 +319,6 @@ class VideoClient(object):
 
             elif button == "pause/resume":
                 self.client_app.call_manager.hold_and_resume_call()
-            
-            elif button == "webcam/video":
-                self.client_app.call_manager.change_video_cap()
 
             elif button == "Cambiar resolución":
                 resolution=self.app.getRadioButton("resolution")
@@ -342,25 +338,14 @@ class VideoClient(object):
     def start(self):
         self.app.go()
 
-    def start_after_register(self, capture_flag):
-        self.config_capture_video(capture_flag)
+    def start_after_register(self):
+        self.config_capture_video_settings()
 
-    def config_capture_video(self, capture_flag):
+    def config_capture_video_settings(self):
         # Registramos la función de captura de video
         # Esta misma función también sirve para enviar un vídeo
         
-        if capture_flag:
-            print("Voy a usar camara")
-            self.capture_webcam = True
-            self.cap = cv2.VideoCapture(0)
-            if not self.cap.isOpened():
-                capture_flag = False
-                print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
-
-        if not capture_flag:
-            print("Voy a usar video")
-            self.capture_webcam = False
-            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
+        self.set_video_capture(use_webcam=False,resource_name="home_page.gif")
             
         self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
