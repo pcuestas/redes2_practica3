@@ -246,11 +246,32 @@ class VideoClient(object):
         self.app.addLabel("CallInfo", "")
         self.app.addImage("inc_video", self.client_app.file("/media/webcam.gif"))
         self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
+
+
+        #START TAB PANE
+        self.app.startTabbedFrame("TabLlamada")
+
+        self.app.startTab("Acciones")
         self.app.addButtons(["Colgar"], self.buttonsCallback)
         self.app.addNamedButton("Pausar", "pause/resume", self.buttonsCallback)
         self.app.addNamedButton("Webcam","webcam/video",self.buttonsCallback)
-        
+        self.app.stopTab()
+
+        self.app.startTab("Ajustar resolución de envío")
+        self.app.addRadioButton("resolution","LOW")
+        self.app.addRadioButton("resolution","MEDIUM")
+        self.app.addRadioButton("resolution","HIGH")
+        self.app.addButton("Cambiar resolución", self.buttonsCallback)
+        self.app.stopTab()
+
+        self.app.startTab("Recurso a enviar")
+        self.app.addLabel("c","EOEOOE")
+        self.app.stopTab()
         self.app.addStatusbar(fields=2)
+
+        self.app.stopTabbedFrame()
+        #END TAB PANE
+
         self.app.stopSubWindow()
 
     def configure_list_users_window(self):
@@ -292,6 +313,11 @@ class VideoClient(object):
             
             elif button == "webcam/video":
                 self.client_app.call_manager.change_video_cap()
+
+            elif button == "Cambiar resolución":
+                resolution=self.app.getRadioButton("resolution")
+                self.client_app.call_manager.set_image_resolution(resolution)
+
             
         except P3Exception as e:
             self.app.infoBox("Error", e)
