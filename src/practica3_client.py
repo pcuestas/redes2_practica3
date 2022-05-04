@@ -241,8 +241,9 @@ class VideoClient(object):
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
-        self.app.setSize(CAM_SIZE[0]+100, CAM_SIZE[1]+100)
+        self.app.setSize(CAM_SIZE[0]+100, CAM_SIZE[1]+200)
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
+        self.app.addLabel("CallInfo", "")
         self.app.addImage("inc_video", self.client_app.file("/media/webcam.gif"))
         self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
         self.app.addButtons(["Colgar"], self.buttonsCallback)
@@ -341,13 +342,17 @@ class VideoClient(object):
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
      
 
-    def set_video_capture(self,webcam: bool):
+    def set_video_capture(self,webcam: bool = True, video_path="/media/videoplayback.mp4"):
         if webcam:
             self.cap = cv2.VideoCapture(0)
             self.capture_webcam = True
-        else:
-            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
-            self.capture_webcam = False           
+            if not self.cap.isOpened():
+                print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
+            else: 
+                return 
+        # use video:
+        self.cap = cv2.VideoCapture(self.client_app.file(video_path))
+        self.capture_webcam = False           
 
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):

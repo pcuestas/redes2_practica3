@@ -84,13 +84,21 @@ class CallManager(object):
     def build_header(self):
         'Construye la cabcera y la devuelve como una cadena de bytes'
         return bytes(str(self._send_order_number)+"#"+str(time.time())+"#" \
-                + self._resolution+"#"+str(self._send_fps)+"#",'utf-8')
+                + self.resolution_str()+"#"+str(self._send_fps)+"#",'utf-8')
+
+    def resolution_str(self):
+        if self._resolution == "LOW":
+            return str(160) + 'x' + str(120)
+        if self._resolution == "MEDIUM":
+            return str(320) + 'x' + str(240)
+        if self._resolution == "HIGH":
+            return str(640) + 'x' + str(480)
 
     def set_send_fps(self, fps=25):
         self._send_fps = fps
-        self.client_app.video_client.app.setPollTime( 1000 // fps)
+        self.client_app.video_client.app.setPollTime(int(1000 // fps))
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
-        self.call_buffer.set_maxsize(fps*4)
+        self.call_buffer.set_maxsize(int(fps*4))
 
     def set_image_resolution(self, resolution="MEDIUM"):
         self._resolution = resolution
@@ -176,15 +184,19 @@ class CallManager(object):
         if not self.in_call():
             return
 
-        #if self.call_buffer.len < (self._send_fps / 4):
-        #    return 
-
+        if self.call_buffer.len < (self._send_fps / 8):
+            print("No hay suficiente en el buffer")
+            return 
+        if self.call_buffer.len > (self._send_fps / 2):
+            print("Quito del buffer, hay demasiados")
+            self.call_buffer.pop()
         try:
             self._last_frame_shown, timestamp, resolution, fps, frame = self.call_buffer.pop()
             self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
             
             if float(fps) != self._send_fps:
                 self.set_send_fps(float(fps))
+            self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {fps} fps; resolución: {resolution}.")
    
         except:
             #buffer vacio
@@ -378,9 +390,11 @@ class ReceiveVideoThread(TerminatableThread):
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
                 return
-
-            order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
-            self.insert_in_buffer(compressed_frame, int(order_number), float(timestamp), resolution, fps)
+            try:
+                order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
+                self.insert_in_buffer(compressed_frame, int(order_number), float(timestamp), resolution, fps)
+            except ValueError:
+                pass
 
     
     def split_data(self,data):
@@ -425,7 +439,7 @@ class ReceiveControlCommandsThread(TerminatableThread):
         self.control_socket.settimeout(0.5)
         while 1:
             try:
-                msg = self.control_socket.recv(2 << 12).decode(encoding="utf-8")
+                msg = self.control_socket.recv(2 << 15).decode(encoding="utf-8")
                 if len(msg) > 0:
                     self.call_manager.process_control_message(msg)
             except socket.timeout:

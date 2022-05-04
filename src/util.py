@@ -83,7 +83,7 @@ class CircularBuffer():
         elem=(priority,data)
         '''
         if len(self._queue.queue) == self._maxsize:
-            print("buffer lleno jejeje!!!")
+            print("Buffer lleno")
             self._queue.get(block=False)
         self._queue.put(elem)
 
