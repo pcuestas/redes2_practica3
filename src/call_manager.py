@@ -454,14 +454,17 @@ class ConsumeVideoThread(TerminatableThread):
             #    if self.stopped():break
             #    pause = (self.call_buffer.len < (self.fps))
 
-            if self.stopped():break
+            #if self.stopped():break
 
             #if self.call_buffer.len > (self.fps / 2) > 0:
             #    print("Quito del buffer, hay demasiados")
             #    self.call_buffer.pop()
 
             try:
-                self.call_manager._last_frame_shown, fts, resolution, fps, frame = self.call_buffer.pop()
+                while 1:
+                    self.call_manager._last_frame_shown, fts, resolution, fps, frame = self.call_buffer.pop()
+                    if (time.time() - fts) <= 2:
+                        break 
 
                 fts_dif = fts - self.prev_fts
                 self.prev_fts = fts
