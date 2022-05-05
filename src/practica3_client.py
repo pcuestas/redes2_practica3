@@ -5,9 +5,10 @@ from PIL import Image, ImageTk
 from call_manager import CallManager
 import cv2
 import os 
-import re 
+import re
 import numpy as np
 import os
+from PIL import ImageGrab
 
 import listener
 from ds_client import DSClient, DSException
@@ -214,19 +215,19 @@ class VideoClient(object):
         self.app.setLocation(x=0, y=0)
 
         self.cap = None
-
-        self.capture_webcam = False
+        self.screen_cap = False 
+        self.CAM_SIZE = (640,480)
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
         self.app.setStopFunction(self.client_app.call_manager.end_call)
 
-        self.app.setSize(CAM_SIZE[0]+100, CAM_SIZE[1]+200)
+        self.app.setSize(self.CAM_SIZE[0]+100, self.CAM_SIZE[1]+200)
         
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
         self.app.addLabel("CallInfo", "")
         self.app.addImage("inc_video", self.client_app.file("/media/webcam.gif"))
-        self.app.setImageSize("inc_video", CAM_SIZE[0], CAM_SIZE[1])
+        self.app.setImageSize("inc_video", self.CAM_SIZE[0], self.CAM_SIZE[1])
 
 
         #START TAB PANE
@@ -250,7 +251,7 @@ class VideoClient(object):
         fileslist = os.listdir(self.client_app.file("/media"))
         fileslist.remove(".gitignore")
 
-        self.app.addOptionBox("optionbox", ["Webcam"] + fileslist)
+        self.app.addOptionBox("optionbox", ["Webcam", "Capture screen"] + fileslist)
         self.app.setOptionBoxChangeFunction("optionbox", self.select_media_resource)
         self.app.stopTab()
         self.app.addStatusbar(fields=2)
@@ -299,6 +300,8 @@ class VideoClient(object):
         opt=self.app.getOptionBox("optionbox")
         if opt == "Webcam":
             self.set_video_capture(use_webcam=True)
+        elif opt == "Capture screen":
+            self.set_video_capture(use_webcam=False,screen_cap=True)
         else:
             self.set_video_capture(use_webcam=False, resource_name=opt)
         
@@ -371,14 +374,19 @@ class VideoClient(object):
         # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
      
 
-    def set_video_capture(self,use_webcam: bool = True, resource_name="videoplayback.mp4"):
+    def set_video_capture(self, use_webcam: bool = True, resource_name="videoplayback.mp4", screen_cap=False):
 
+        if screen_cap:
+            self.screen_cap = True 
+            return 
+
+        self.screen_cap = False 
+         
         rute = "/media/"+resource_name
         err = False
         try:
-            if use_webcam  and not self.capture_webcam == True:
+            if use_webcam:
                 print("Voy a usar camara")
-                self.capture_webcam = True
                 self.cap = cv2.VideoCapture(0)
                 if not self.cap.isOpened():
                     err = True
@@ -387,7 +395,6 @@ class VideoClient(object):
 
             else:
                 print("Voy a usar video")
-                self.capture_webcam = False
                 self.cap = cv2.VideoCapture(self.client_app.file(rute)) 
                 fps = self.cap.get(cv2.CAP_PROP_FPS)
                 fps = min(fps,MAX_FPS)
@@ -398,25 +405,29 @@ class VideoClient(object):
             print("Hubo algún error, utilizando vídeo por defecto.")
 
         if err:
-            self.capture_webcam = False
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
             fps = self.cap.get(cv2.CAP_PROP_FPS)
             fps = max(fps,MAX_FPS)
 
         self.client_app.call_manager.set_send_fps(fps=fps)
      
-   
-
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
         try:
-            # Capturamos un frame de la cámara o del vídeo
-            ret, frame = self.cap.read()
-            if not ret:
-                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                return 
-            frame = cv2.resize(frame, CAM_SIZE)
-            cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            if self.screen_cap:
+                img = ImageGrab.grab() #x, y, w, h
+                frame = np.array(img)
+                frame = cv2.resize(frame, CAM_SIZE)
+                cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            else:
+                # Capturamos un frame de la cámara o del vídeo
+                ret, frame = self.cap.read()
+                if not ret:
+                    self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    return 
+                frame = cv2.resize(frame, CAM_SIZE)
+                cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
 
             # Lo mostramos en el GUI
@@ -438,14 +449,14 @@ class VideoClient(object):
         # Puede añadirse algún valor superior si la cámara lo permite
         # pero no modificar estos
         if resolution == "LOW":
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160) 
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120) 
+            self.CAM_SIZE = (160,120)
         elif resolution == "MEDIUM":
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320) 
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240) 
+            self.CAM_SIZE = (320,240)
         elif resolution == "HIGH":
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640) 
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) 
+            self.CAM_SIZE = (640,480)
+        
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.CAM_SIZE[0]) 
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.CAM_SIZE[1]) 
 
     def display_users_list(self, users):
         #self.app.replaceAllTableRows(

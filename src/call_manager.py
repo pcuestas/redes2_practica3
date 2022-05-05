@@ -305,7 +305,7 @@ class CallManager(object):
             
             control_sock.connect((ip, tcp_port))            
             TCP.send(msg, control_sock)
-            answer_msg = control_sock.recv(2 << 12).decode(encoding="utf-8")
+            answer_msg = control_sock.recv(1 << 14).decode(encoding="utf-8")
 
             self.process_response_message(answer_msg, control_sock)  
 
@@ -382,7 +382,7 @@ class ReceiveVideoThread(TerminatableThread):
         while not self.stopped():
             try:
                 self.server_sock.settimeout(1/self.fps)
-                data, client_address = self.server_sock.recvfrom(2 << 14)
+                data, client_address = self.server_sock.recvfrom(1 << 20)
 
                 order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
 
@@ -473,7 +473,7 @@ class ReceiveControlCommandsThread(TerminatableThread):
         self.control_socket.settimeout(0.5)
         while 1:
             try:
-                msg = self.control_socket.recv(2 << 15).decode(encoding="utf-8")
+                msg = self.control_socket.recv(1 << 14).decode(encoding="utf-8")
                 if len(msg) > 0:
                     self.call_manager.process_control_message(msg)
             except socket.timeout:
