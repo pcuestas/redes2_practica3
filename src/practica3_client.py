@@ -14,6 +14,7 @@ from call_manager import User
 from util import *
 
 
+MAX_FPS = 60
 CAM_SIZE = (640, 480)
 
 class ClientApplication(object):
@@ -301,7 +302,7 @@ class VideoClient(object):
 
     def update_status_bar(self, resolution, fps):
         self.app.setStatusbar(f"Enviando a resolución {resolution}", 0)
-        self.app.setStatusbar(f"FPS: {fps} ", 1)
+        self.app.setStatusbar(f"Enviando a {fps} fps", 1)
                     
     # Función que gestiona los callbacks de los botones
     def buttonsCallback(self, button):
@@ -386,7 +387,14 @@ class VideoClient(object):
         except:
             print("Hubo algún error, utilizando vídeo por defecto.")
             self.capture_webcam = False
-            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))   
+            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
+
+        fps = self.cap.get(cv2.CAP_PROP_FPS)
+        fps = max(fps,MAX_FPS)
+
+        self.client_app.call_manager.set_send_fps(fps=fps)
+     
+   
 
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
