@@ -463,7 +463,7 @@ class ConsumeVideoThread(TerminatableThread):
             try:
                 while 1:
                     self.call_manager._last_frame_shown, fts, resolution, fps, frame = self.call_buffer.pop()
-                    if (time.time() - fts) <= 2:
+                    if (time.time() - fts) <= 0.5:
                         break 
 
                 fts_dif = fts - self.prev_fts
