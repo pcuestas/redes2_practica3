@@ -135,8 +135,12 @@ class CallManager(object):
         
         self.receive_video_thread.end()
         #TODO !!!!
-        self.receive_video_thread.join(0.4)
-        self.receive_video_thread = None
+
+        try:
+            self.receive_video_thread.join(0.4)
+            self.receive_video_thread = None
+        except RuntimeError:
+            pass
 
         self.receive_control_commands_thread.end()
         self.receive_control_commands_thread.join(0.7)
@@ -366,7 +370,7 @@ class ReceiveVideoThread(TerminatableThread):
         self.configure_socket()
         pause = True
         cummulative_time = 0
-        while 1:
+        while not self.stopped():
             try:
                 self.server_sock.settimeout(1/self.fps)
                 data, client_address = self.server_sock.recvfrom(2 << 14)
@@ -387,11 +391,6 @@ class ReceiveVideoThread(TerminatableThread):
                 self.call_manager.end_call(message="Se ha cortado la llamada por fallos en la conexión")
                 self.quit()
                 return 
-            
-            if self.stopped():
-                #TODO self.modify_subWindow("Call ended")
-                self.quit()
-                return
 
             if pause: 
                 if self.call_buffer.len < self.fps / 2:
@@ -416,6 +415,8 @@ class ReceiveVideoThread(TerminatableThread):
                 #buffer vacio
                 pause = True
                 pass
+        
+        self.quit()
 
 
     def set_receive_fps(self, fps):
