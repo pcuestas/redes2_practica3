@@ -1,7 +1,7 @@
 
 from ipaddress import ip_address
 import socket
-from exceptions import DSException
+from exceptions import DSException, P3Exception, SocketError
 from util import TCP
 import netifaces as ni
 
@@ -20,6 +20,8 @@ class DSClient():
         self.nick = None
         self.password = None
         self.client_app = client_app
+
+        self.contact_book = {}
         
         # descomentar las siguientes dos líneas para conectar con alguien en la vpn
         import netifaces as ni
@@ -53,9 +55,34 @@ class DSClient():
 
     def query(self, nick):
         '''devuelve [nick, ip_address, port, protocols]'''
-        resp = self.send(" ".join(["QUERY", nick]))
-        return resp.split(' ')[1:] 
+
+        not_found = True
+        user = None
+
+        if nick in self.contact_book.keys():
+            user=self.contact_book[nick]
+            not_found = False
+
+            # Ver si la entrada está actualizada
+            try:
+                TCP.create_socket_and_send(" ",user[0],int(user[1]))
+
+            #TODO: poner excepcion que es
+            except Exception as e:
+                print(e)
+                not_found = True
+
+        #entrada inexistente o desactualizada
+        if not_found:
+            resp = self.send(" ".join(["QUERY", nick]))
+            resp = resp.split(' ')[1:] # [nick,ip_adress, port, prootocols]
+
+            #update contact book
+            self.contact_book[nick]=(resp[1],resp[2],resp[3])
+            return resp
         
+       
+        return [nick,user[0],user[1],user[2]]
         
     def quit(self):
         self.send("QUIT")
@@ -64,11 +91,24 @@ class DSClient():
         '''devuelve una lista con elementos del tipo: [nick, ip_address, port]'''
         resp_list = self.send("LIST_USERS")
         print(resp_list[:16])
-        return [
+        users= [
             query.split(' ')[:3] 
             for query in ' '.join(resp_list.split(' ')[2:]).split('#')[:-1]
         ]
 
 
+        for user in users:
+            try:
+                self.contact_book[user[0]]=(user[1],user[2],user[3])
+            except IndexError: #algún usuario se ha registrado sin todos los campos
+                pass
+        
+        return users
+
+    def remove_from_contact_book(self,nick):
+        try:
+            del self.contact_book[nick]
+        except KeyError:
+            pass
 
 

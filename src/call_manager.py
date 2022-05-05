@@ -303,7 +303,7 @@ class CallManager(object):
         return self._peer
     
     # mensajes de control
-    def make_call(self, msg, ip, tcp_port):
+    def make_call(self, msg, ip, tcp_port,timeout=20):
         '''
             Llama a un usuario y gestiona la llamada.
             msg="CALLING nick udpport", 
@@ -313,7 +313,7 @@ class CallManager(object):
         try:
             control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             
-            control_sock.settimeout(20) # 20 segundos esperando llamada, no más
+            control_sock.settimeout(timeout) # 20 segundos esperando llamada, no más
             
             control_sock.connect((ip, tcp_port))            
             TCP.send(msg, control_sock)
