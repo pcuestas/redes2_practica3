@@ -469,8 +469,8 @@ class ConsumeVideoThread(TerminatableThread):
                 ts = time.time()
                 ts_dif = ts - self.prev_ts
                 
-                if fts_dif > ts_dif:
-                    time.sleep(fts_dif - ts_dif)
+                if fts_dif > (1/fps):
+                    time.sleep(fts_dif - 1/fps)
                     ts = time.time()
 
                 self.prev_ts = ts
