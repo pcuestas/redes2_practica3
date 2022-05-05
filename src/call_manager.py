@@ -362,6 +362,8 @@ class ReceiveVideoThread(TerminatableThread):
     def run(self):
 
         self.configure_socket()
+        pause = True
+        cummulative_time = 0
         while 1:
             try:
                 self.server_sock.settimeout(1/self.fps)
@@ -370,9 +372,16 @@ class ReceiveVideoThread(TerminatableThread):
                 order_number,timestamp,resolution,fps,compressed_frame = self.split_data(data)
 
                 self.insert_in_buffer(compressed_frame, int(order_number), float(timestamp), resolution, fps)
+                cummulative_time = 0
             except (socket.timeout, ValueError):
+                cummulative_time += 1/self.fps
                 pass
 
+            if cummulative_time > 3:
+                self.call_manager.end_call()
+                self.quit()
+                return 
+            
             if self.stopped():
                 #TODO self.modify_subWindow("Call ended")
                 self.quit()
