@@ -1,4 +1,5 @@
 import enum
+import time
 from appJar import gui
 from PIL import Image, ImageTk
 from call_manager import CallManager
@@ -54,20 +55,19 @@ class ClientApplication(object):
         return self._instance
 
     def start(self):
-        self.request_initial_register()
+        self.video_client.request_initial_register()
         self.video_client.start()
 
     def start_after_register(self):
-        # pregunta si quiere webcam
-        #capture_flag = self.video_client.app.yesNoBox("WebCam", "¿Usar cámara?")
 
         #Inicia el hilo que escucha peticiones
         self.listener_thread.setDaemon(True)
         self.listener_thread.start()
 
+        self.video_client.app.setLabel("title",f"{self.ds_client.nick} - Cliente Multimedia P2P ")
+
         # iniciar el VideoClient - la ejecución se queda 
         # aquí hasta que se salga del video client
-        self.video_client.app.setLabel("title",f"{self.ds_client.nick} - Cliente Multimedia P2P ")
         self.video_client.start_after_register()
 
     def initial_register_button(self, button):
@@ -102,28 +102,6 @@ class ClientApplication(object):
 
         # lanzar la aplicación 
         self.start_after_register()
-    
-    def request_initial_register(self):
-        self.video_client.app.startSubWindow("Register", modal=True)
-
-        self.video_client.app.addLabel("lr1", "Puerto TCP:")
-        self.video_client.app.addEntry("tcpp")
-        self.video_client.app.setEntry("tcpp", str(np.random.randint(4000, 11000)))
-
-        self.video_client.app.addLabel("lr2", "Puerto UDP:")
-        self.video_client.app.addEntry("udpp")
-        self.video_client.app.setEntry("udpp", str(np.random.randint(4000, 11000)))
-
-        self.video_client.app.addLabel("lr3", "Nick:")
-        self.video_client.app.addEntry("nick")
-
-        self.video_client.app.addLabel("lr4", "Contraseña:")
-        self.video_client.app.addSecretEntry("pass")
-
-        self.video_client.app.addButtons(["Entrar", "Cerrar"],self.initial_register_button)
-        self.video_client.app.stopSubWindow()
-        
-        self.video_client.app.showSubWindow("Register")
 
 
     def request_nick_password_and_register(self):
@@ -131,31 +109,23 @@ class ClientApplication(object):
             if not self.request_nick_password():
                 # user closes the nick/password window
                 return False
-
             try:
                 # registrar usuario
                 self.ds_client.register()
                 break
             except DSException as e:
                 self.video_client.app.infoBox("Error", str(e))
-        # correctly registered
+        # registrado correctamente
         return True
 
-    def request_to_user(self, msg):
-        '''pide un valor al usuario en forma de texto, 
-        devuelve None en caso de que el usuario no introduzca nada'''
-        val = self.video_client.app.textBox(
-            "ApplicationClient", msg)
-        if not val:
-            return None
-        return val
-
     def request_nick_password(self):
-        nick = self.request_to_user("Introduce tu nick de sesión")
+        nick = self.video_client.app.textBox(
+            "ApplicationClient", "Introduce tu nick de sesión")
         if not nick:
             return False
 
-        password = self.request_to_user("Introduce tu contraseña")
+        password = self.video_client.app.textBox(
+            "ApplicationClient", "Introduce tu contraseña")
         if not password:
             return False
 
@@ -163,6 +133,7 @@ class ClientApplication(object):
         self.ds_client.password = password
 
         return True
+
     def quit(self):
         print("Cerrando aplicación.")
 
@@ -171,6 +142,7 @@ class ClientApplication(object):
         self.ds_client.quit()
 
         # cerrar aquí todos los hilos...
+        self.listener_thread.end()
         self.call_manager.quit()
 
     def init_call_window(self):
@@ -206,7 +178,7 @@ class ClientApplication(object):
             user = User(nick, ipaddr, None, int(tcp_port))
             self.call_manager.call(user)
     
-    def register_with_new_user(self):
+    def register_as_new_user(self):
         if self.video_client.app.questionBox(
             title="Registrar nuevo usuario",
             message=f"¿Cerrar sesión con el usuario actual: {self.ds_client.nick}?"
@@ -214,6 +186,9 @@ class ClientApplication(object):
             if not self.request_nick_password_and_register():
                 self.video_client.app.infoBox("Info", "Cerrando aplicación, es necesario tener un usuario registrado")
                 self.client_app.quit()
+            
+            #actualizar el nombre en la ventana
+            self.video_client.app.setLabel("title",f"{self.ds_client.nick} - Cliente Multimedia P2P ")
             
     def list_of_users(self):
         users = self.ds_client.list_users()
@@ -244,7 +219,10 @@ class VideoClient(object):
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
+        self.app.setStopFunction(self.client_app.call_manager.end_call)
+
         self.app.setSize(CAM_SIZE[0]+100, CAM_SIZE[1]+200)
+        
         self.app.addLabel("msg_call_window", f" {self.client_app.ds_client.nick}-Ventana de llamada")
         self.app.addLabel("CallInfo", "")
         self.app.addImage("inc_video", self.client_app.file("/media/webcam.gif"))
@@ -292,6 +270,30 @@ class VideoClient(object):
 
         self.app.addButtons(["Cerrar lista"], self.buttonsCallbackListUsers)
         self.app.stopSubWindow()
+
+    def request_initial_register(self):
+        self.app.startSubWindow("Register", modal=True)
+
+        self.app.setStopFunction(self.stop)
+
+        self.app.addLabel("lr1", "Puerto TCP:")
+        self.app.addEntry("tcpp")
+        self.app.setEntry("tcpp", str(np.random.randint(4000, 11000)))
+
+        self.app.addLabel("lr2", "Puerto UDP:")
+        self.app.addEntry("udpp")
+        self.app.setEntry("udpp", str(np.random.randint(4000, 11000)))
+
+        self.app.addLabel("lr3", "Nick:")
+        self.app.addEntry("nick")
+
+        self.app.addLabel("lr4", "Contraseña:")
+        self.app.addSecretEntry("pass")
+
+        self.app.addButtons(["Entrar", "Cerrar"], self.client_app.initial_register_button)
+        self.app.stopSubWindow()
+        
+        self.app.showSubWindow("Register")
 
     def select_media_resource(self):
         opt=self.app.getOptionBox("optionbox")
@@ -389,6 +391,8 @@ class VideoClient(object):
                 self.cap = cv2.VideoCapture(self.client_app.file(rute)) 
                 fps = self.cap.get(cv2.CAP_PROP_FPS)
                 fps = min(fps,MAX_FPS)
+                if not fps:
+                    err = True
         except:
             err = True
             print("Hubo algún error, utilizando vídeo por defecto.")

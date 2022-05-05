@@ -10,7 +10,7 @@ class DSClient():
     def __init__(
         self, 
         client_app,
-        ip_address=socket.gethostbyname(socket.gethostname()),
+        ip_address=socket.gethostbyname(socket.gethostname()), # tomar mi ip
         protocol="V0",
     ):
         # ds server:
@@ -88,11 +88,11 @@ class DSClient():
         self.send("QUIT")
 
     def list_users(self):
-        '''devuelve una lista con elementos del tipo: [nick, ip_address, port]'''
+        '''devuelve una lista con elementos del tipo: [nick, ip_address, port, protocolo]'''
         resp_list = self.send("LIST_USERS")
         print(resp_list[:16])
         users= [
-            query.split(' ')[:3] 
+            query.split(' ') 
             for query in ' '.join(resp_list.split(' ')[2:]).split('#')[:-1]
         ]
 
