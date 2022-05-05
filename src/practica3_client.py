@@ -1,3 +1,4 @@
+import enum
 from appJar import gui
 from PIL import Image, ImageTk
 from call_manager import CallManager
@@ -371,26 +372,32 @@ class VideoClient(object):
     def set_video_capture(self,use_webcam: bool = True, resource_name="videoplayback.mp4"):
 
         rute = "/media/"+resource_name
+        err = False
         try:
             if use_webcam  and not self.capture_webcam == True:
                 print("Voy a usar camara")
                 self.capture_webcam = True
                 self.cap = cv2.VideoCapture(0)
                 if not self.cap.isOpened():
-                    capture_flag = False
+                    err = True
                     print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
+                fps = 25
 
             else:
                 print("Voy a usar video")
                 self.capture_webcam = False
-                self.cap = cv2.VideoCapture(self.client_app.file(rute))  
+                self.cap = cv2.VideoCapture(self.client_app.file(rute)) 
+                fps = self.cap.get(cv2.CAP_PROP_FPS)
+                fps = min(fps,MAX_FPS)
         except:
+            err = True
             print("Hubo algún error, utilizando vídeo por defecto.")
+
+        if err:
             self.capture_webcam = False
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
-
-        fps = self.cap.get(cv2.CAP_PROP_FPS)
-        fps = max(fps,MAX_FPS)
+            fps = self.cap.get(cv2.CAP_PROP_FPS)
+            fps = max(fps,MAX_FPS)
 
         self.client_app.call_manager.set_send_fps(fps=fps)
      
@@ -442,10 +449,15 @@ class VideoClient(object):
         #    [["Nick", "IP", "TCP port"]] + users
         #)
         self.app.clearListBox("ListBoxUsers")
+        listusers = []
+        for i,s in enumerate(users):
+            try:
+                listusers+=[f"  {i}. Nombre: '{s[0]}'; IP: {s[1]}; puerto: {s[2]}."]
+            except IndexError:
+                pass
         self.app.updateListBox(
             "ListBoxUsers",
-              ["        USUARIOS EN EL SERVIDOR"] 
-            +[f"  {i}. Nombre: '{s[0]}'; IP: {s[1]}; puerto: {s[2]}." for i,s in enumerate(users)]
+              ["        USUARIOS EN EL SERVIDOR"] + listusers
         )
         self.app.showSubWindow("ListUsers")
         
