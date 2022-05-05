@@ -1,5 +1,5 @@
 '''
-    Excepciones de securebox_client
+    Excepciones de la práctica 3
 '''
 
 class P3Exception(Exception):
