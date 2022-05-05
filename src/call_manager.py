@@ -118,8 +118,10 @@ class CallManager(object):
         self.client_app.video_client.setImageResolution(resolution)
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
-    def end_call(self, send_end_call=True):
+    def end_call(self, send_end_call=True, message=None):
         self.set_in_call(False)
+
+        if message: self.client_app.video_client.app.infoBox("Info", message)
 
         self.client_app.end_call_window()
 
@@ -378,7 +380,7 @@ class ReceiveVideoThread(TerminatableThread):
                 pass
 
             if cummulative_time > 3:
-                self.call_manager.end_call()
+                self.call_manager.end_call(message="Se ha cortado la llamada por fallos en la conexión")
                 self.quit()
                 return 
             
