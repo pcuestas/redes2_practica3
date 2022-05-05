@@ -25,7 +25,7 @@ class CallManager(object):
 
     def __init__(self, client_app):
         self.client_app = client_app
-        #self.send_video_thread = None
+        self.consume_video_thread = None
         self.receive_video_thread = None
         self.receive_control_commands_thread = None
         self.send_data_socket = None
@@ -43,7 +43,6 @@ class CallManager(object):
         self._send_fps = None
         self._send_order_number = None
         self._resolution = None
-        self._n_frame_mutex = threading.Lock()
         self._last_frame_shown = -1
             #TODO buffer de frames
         self.call_buffer = CircularBuffer(100)
@@ -70,13 +69,21 @@ class CallManager(object):
             self.client_app._udp_port, self.client_app
         )
         self.receive_video_thread.start()
+
         self.receive_control_commands_thread = ReceiveControlCommandsThread(
             control_sock, self
         )
         self.receive_control_commands_thread.start()
 
+        self.consume_video_thread = ConsumeVideoThread(
+            self.client_app, self, self.call_buffer
+        )
+        self.consume_video_thread.setDaemon(True)
+        self.consume_video_thread.start()
+
     def reset_variables(self):
         self.call_buffer.clear()
+        self._last_frame_shown = -1
         self._in_call = False
         self._pause = False
         self._can_i_resume = False
@@ -106,10 +113,6 @@ class CallManager(object):
         self.client_app.video_client.app.setPollTime(int(1000 // fps))
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
-    def set_receive_fps(self, fps):
-        self._receive_fps = fps
-        self.call_buffer.set_maxsize(int(fps//2)) # 0.5 segundos de vídeo en el buffer
-
     def set_image_resolution(self, resolution="MEDIUM"):
         self._resolution = resolution
         self.client_app.video_client.setImageResolution(resolution)
@@ -136,6 +139,9 @@ class CallManager(object):
         self.receive_control_commands_thread.end()
         self.receive_control_commands_thread.join(0.7)
         self.receive_control_commands_thread = None
+
+        self.consume_video_thread.end()
+        self.consume_video_thread = None
 
         self.send_data_socket.close()
         self.send_data_socket = None
@@ -172,32 +178,6 @@ class CallManager(object):
         try:
             TCP.send(msg, self.receive_control_commands_thread.control_socket)
         except P3Exception as e:
-            pass
-
-    def consume_frame(self):
-
-        if not self.in_call():
-            return
-
-        if self.call_buffer.len < (self._receive_fps / 8):
-            print("No hay suficiente en el buffer")
-            return 
-
-        if self.call_buffer.len > (self._receive_fps / 2) > 0:
-            print("Quito del buffer, hay demasiados")
-            self.call_buffer.pop()
-
-        try:
-            self._last_frame_shown, timestamp, resolution, fps, frame = self.call_buffer.pop()
-            self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
-            
-            if float(fps) != self._receive_fps:
-                self.set_receive_fps(float(fps))
-
-            self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {fps.decode()} fps; resolución: {resolution.decode()}.")
-   
-        except:
-            #buffer vacio
             pass
 
     # funciones llamadas por el listener
@@ -420,7 +400,7 @@ class ReceiveVideoThread(TerminatableThread):
             decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
-            self.client_app.call_manager.call_buffer.push((order_number, timestamp, resolution, fps, img_tk))
+            self.client_app.call_manager.call_buffer.push((order_number, float(timestamp), resolution, int(fps), img_tk))
       
 
     def quit(self):
@@ -450,3 +430,67 @@ class ReceiveControlCommandsThread(TerminatableThread):
     def quit(self):
         self.control_socket.close()
         print("Hilo de recepción de control acaba")
+
+class ConsumeVideoThread(TerminatableThread):
+    def __init__(self, client_app, call_manager:CallManager, callbuf:CircularBuffer):
+        super().__init__()
+        self.call_manager = call_manager
+        self.client_app = client_app
+        self.call_buffer = callbuf
+        self.fps = 25 # valor inicial, no importa mucho
+
+        self.prev_fts = time.time() # timestamp del frame anterior
+        self.prev_ts = time.time() #timestamp del útimo momento en el que se mostró un frame
+
+    def run(self):
+        pause = True # indica si hay que esperar a que se llene un poco el buffer
+
+        while 1:
+            
+            if self.stopped():break
+            
+            #while pause:
+            #    time.sleep(1/(2*self.fps))
+            #    if self.stopped():break
+            #    pause = (self.call_buffer.len < (self.fps))
+
+            if self.stopped():break
+
+            #if self.call_buffer.len > (self.fps / 2) > 0:
+            #    print("Quito del buffer, hay demasiados")
+            #    self.call_buffer.pop()
+
+            try:
+                self.call_manager._last_frame_shown, fts, resolution, fps, frame = self.call_buffer.pop()
+
+                fts_dif = fts - self.prev_fts
+                self.prev_fts = fts
+
+                ts = time.time()
+                ts_dif = ts - self.prev_ts
+                
+                if fts_dif > ts_dif:
+                    time.sleep(fts_dif - ts_dif)
+                    ts = time.time()
+
+                self.prev_ts = ts
+
+                self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
+
+                if self.fps != fps: self.set_receive_fps(fps)
+                
+                self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.")
+    
+            except (TypeError):
+                #buffer vacio
+                pause = True
+                pass
+
+        self.quit()
+
+    def set_receive_fps(self, fps):
+        self.fps = fps
+        self.call_buffer.set_maxsize(int(fps//2)) # 0.5 segundos de vídeo en el buffer
+
+    def quit(self):
+        print("Hilo que consume frames acaba")

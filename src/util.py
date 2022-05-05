@@ -66,6 +66,7 @@ class TCP():
 
         print(f"Leído: {len(data)}")
         return data
+        
 class CircularBuffer():
     '''
     Buffer circular FIFO con longitud máxima. 

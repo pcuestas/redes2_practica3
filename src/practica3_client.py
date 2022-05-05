@@ -354,7 +354,6 @@ class VideoClient(object):
             
         self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
-        self.app.registerEvent(self.client_app.call_manager.consume_frame)
 
         # Añadir los botones
         self.app.addButtons(
