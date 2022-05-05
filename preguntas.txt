@@ -15,16 +15,8 @@ PREGUNTAS:
 
 POR_HACER
 
-process_petition:
-    las varibales de in_call waiting for response pueden no estar actulizandose bien (ver si hace falta mutex)
-    cambiar los or True
 
-
-end_call:
-    matar el hilo que recive. Mandarle un mensaje por el socket ?
-
-video que se envia:
-    solo se muestra una franja!!!
+. LIST_USERS !!!!
 
 no llamar si el otro no está conectado (calling)
 no llamarme a mí mismo
