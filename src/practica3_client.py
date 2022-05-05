@@ -1,5 +1,3 @@
-import enum
-import time
 from appJar import gui
 from PIL import Image, ImageTk
 from call_manager import CallManager
@@ -15,7 +13,6 @@ from ds_client import DSClient, DSException
 from exceptions import P3Exception
 from call_manager import User
 from util import *
-
 
 MAX_FPS = 60
 CAM_SIZE = (640, 480)
@@ -249,7 +246,6 @@ class VideoClient(object):
         self.app.addLabel("c","Select webcam or video to send")
 
         fileslist = os.listdir(self.client_app.file("/media"))
-        fileslist.remove(".gitignore")
 
         self.app.addOptionBox("optionbox", ["Webcam", "Capture screen"] + fileslist)
         self.app.setOptionBoxChangeFunction("optionbox", self.select_media_resource)
@@ -482,6 +478,11 @@ class VideoClient(object):
 
 if __name__ == '__main__':
 
+    # crear el fichero de media
+    MEDIA_DIR = os.path.dirname(__file__) + '/../appfiles/media'
+    if not os.path.exists(MEDIA_DIR):
+        os.makedirs(MEDIA_DIR)
+
     # Inicialización de la aplicación
     app = ClientApplication()
 
@@ -489,3 +490,4 @@ if __name__ == '__main__':
     # El control ya NO vuelve de esta función, por lo que todas las
     # acciones deberán ser gestionadas desde callbacks y threads
     app.start()
+    
