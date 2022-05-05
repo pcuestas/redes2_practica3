@@ -371,19 +371,23 @@ class VideoClient(object):
     def set_video_capture(self,use_webcam: bool = True, resource_name="videoplayback.mp4"):
 
         rute = "/media/"+resource_name
-         
-        if use_webcam  and not self.capture_webcam == True:
-            print("Voy a usar camara")
-            self.capture_webcam = True
-            self.cap = cv2.VideoCapture(0)
-            if not self.cap.isOpened():
-                capture_flag = False
-                print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
+        try:
+            if use_webcam  and not self.capture_webcam == True:
+                print("Voy a usar camara")
+                self.capture_webcam = True
+                self.cap = cv2.VideoCapture(0)
+                if not self.cap.isOpened():
+                    capture_flag = False
+                    print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
 
-        else:
-            print("Voy a usar video")
+            else:
+                print("Voy a usar video")
+                self.capture_webcam = False
+                self.cap = cv2.VideoCapture(self.client_app.file(rute))  
+        except:
+            print("Hubo algún error, utilizando vídeo por defecto.")
             self.capture_webcam = False
-            self.cap = cv2.VideoCapture(self.client_app.file(rute))      
+            self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))   
 
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
