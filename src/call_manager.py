@@ -376,8 +376,12 @@ class ReceiveVideoThread(TerminatableThread):
                 self.insert_in_buffer(compressed_frame, int(order_number), float(timestamp), resolution, fps)
                 cummulative_time = 0
             except (socket.timeout, ValueError):
-                cummulative_time += 1/self.fps
-                pass
+
+                if self.client_app.call_manager._pause:
+                     cummulative_time =0
+                else:
+                    cummulative_time += 1/self.fps
+              
 
             if cummulative_time > 3:
                 self.call_manager.end_call(message="Se ha cortado la llamada por fallos en la conexión")
