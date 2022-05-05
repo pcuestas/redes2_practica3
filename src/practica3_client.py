@@ -1,4 +1,3 @@
-# import the library
 from appJar import gui
 from PIL import Image, ImageTk
 from call_manager import CallManager
@@ -6,6 +5,7 @@ import cv2
 import os 
 import re 
 import numpy as np
+import os
 
 import listener
 from ds_client import DSClient, DSException
@@ -19,6 +19,7 @@ CAM_SIZE = (640, 480)
 class ClientApplication(object):
     '''Clase singleton: se utiliza llamando a self.client_app'''
     _instance = None
+    _initial_register = False
 
     def __new__(self):
         if not self._instance:
@@ -46,8 +47,6 @@ class ClientApplication(object):
                 self.video_client
             )
 
-            #Para que se cierre la app
-            self.listener_thread.setDaemon(True)
             self.call_manager = CallManager(self._instance)
 
         return self._instance
@@ -61,6 +60,7 @@ class ClientApplication(object):
         #capture_flag = self.video_client.app.yesNoBox("WebCam", "¿Usar cámara?")
 
         #Inicia el hilo que escucha peticiones
+        self.listener_thread.setDaemon(True)
         self.listener_thread.start()
 
         # iniciar el VideoClient - la ejecución se queda 
@@ -69,7 +69,7 @@ class ClientApplication(object):
         self.video_client.start_after_register()
 
     def initial_register_button(self, button):
-        if button == "Cerrar":
+        if button == "Cerrar" or ClientApplication()._initial_register:
             self.video_client.stop()
             return 
 
@@ -93,6 +93,7 @@ class ClientApplication(object):
             self.ds_client.password = passw
             self.ds_client.register()
             self.video_client.app.hideSubWindow("Register")
+            ClientApplication()._initial_register = True
         except:
             self.video_client.app.infoBox("Error", "Usuario o contraseña incorrecto.")
             return 
@@ -265,7 +266,11 @@ class VideoClient(object):
 
         self.app.startTab("Recurso a enviar")
         self.app.addLabel("c","Select webcam or video to send")
-        self.app.addOptionBox("optionbox", ["Webcam", "videoplayback.mp4", "gif1.gif"])
+
+        fileslist = os.listdir(self.client_app.file("/media"))
+        fileslist.remove(".gitignore")
+
+        self.app.addOptionBox("optionbox", ["Webcam"] + fileslist)
         self.app.setOptionBoxChangeFunction("optionbox", self.select_media_resource)
         self.app.stopTab()
         self.app.addStatusbar(fields=2)
@@ -288,10 +293,10 @@ class VideoClient(object):
 
     def select_media_resource(self):
         opt=self.app.getOptionBox("optionbox")
-        if opt == 'Webcam':
+        if opt == "Webcam":
             self.set_video_capture(use_webcam=True)
         else:
-            self.set_video_capture(resource_name=opt)
+            self.set_video_capture(use_webcam=False, resource_name=opt)
         
 
     def update_status_bar(self, resolution, fps):
@@ -385,6 +390,9 @@ class VideoClient(object):
         try:
             # Capturamos un frame de la cámara o del vídeo
             ret, frame = self.cap.read()
+            if not ret:
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                return 
             frame = cv2.resize(frame, CAM_SIZE)
             cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
@@ -400,8 +408,6 @@ class VideoClient(object):
                     print('Error al codificar imagen')
                 self.client_app.call_manager.send_datagram(encimg.tobytes())
         except cv2.error as e:
-            if not self.capture_webcam: 
-                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             print(e)
 
     # Establece la resolución de la imagen capturada
