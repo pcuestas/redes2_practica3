@@ -99,8 +99,7 @@ class CallManager(object):
             try:
                 self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
                 self._send_order_number += 1
-            except socket.error : 
-                print("FALAAA")
+            except socket.error:
                 pass
     def build_header(self):
         'Construye la cabcera y la devuelve como una cadena de bytes'
@@ -131,8 +130,8 @@ class CallManager(object):
         self.frames_per_capture = int(ratio_fps)
         self.prob_extra_frame = ratio_fps - int(ratio_fps)
 
-        print(f"Frames de recurso {self.client_app.video_client.resource_fps } y mando a {send_fps}")
-        print(f"Tengo que quemar {self.frames_per_capture} y prob es {self.prob_extra_frame}")
+        #print(f"Frames de recurso {self.client_app.video_client.resource_fps } y mando a {send_fps}")
+        #print(f"Tengo que quemar {self.frames_per_capture} y prob es {self.prob_extra_frame}")
 
         self._send_fps = int(send_fps)
         self.client_app.video_client.app.setPollTime(int(1000 // send_fps))
@@ -175,7 +174,6 @@ class CallManager(object):
         
    
     def hold_and_resume_call(self):
-        #TODO try except para el send
         #resume call 
         if self._pause and self._can_i_resume:
             self._pause = False
