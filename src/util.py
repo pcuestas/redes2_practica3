@@ -34,6 +34,7 @@ class TCP():
 
     def create_socket_and_send(msg:str, ip, tcp_port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
             sock.connect((ip, int(tcp_port)))
             TCP.send(msg, sock)
 

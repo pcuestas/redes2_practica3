@@ -33,18 +33,22 @@ class DSClient():
         self.registered = False
         
     def send(self, msg: str) -> str:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((self.server_name, self.server_port))
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                client_socket.settimeout(15)
+                client_socket.connect((self.server_name, self.server_port))
 
-        client_socket.send(msg.encode(encoding="utf-8"))
-        response = TCP.recvall(client_socket).decode(encoding="utf-8")
+                client_socket.send(msg.encode(encoding="utf-8"))
+                response = TCP.recvall(client_socket).decode(encoding="utf-8")
 
-        if response[:2] == "OK":
-            return response[3:]
-        elif response[:3] == "BYE":
-            return None
-        else:
-            raise DSException(response[4:])
+                if response[:2] == "OK":
+                    return response[3:]
+                elif response[:3] == "BYE":
+                    return None
+                else:
+                    raise DSException(response[4:])
+        except socket.error:
+            raise DSException("No se pudo conectar con el servidor DS.")
 
     def register(self):
         if self.registered:
@@ -66,10 +70,8 @@ class DSClient():
             # Ver si la entrada está actualizada
             try:
                 TCP.create_socket_and_send(" ",user[0],int(user[1]))
-
-            #TODO: poner excepcion que es
-            except Exception as e:
-                print(e)
+                
+            except socket.error as e:
                 not_found = True
 
         #entrada inexistente o desactualizada

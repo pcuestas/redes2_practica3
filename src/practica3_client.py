@@ -94,8 +94,8 @@ class ClientApplication(object):
             self.ds_client.register()
             self.video_client.app.hideSubWindow("Register")
             ClientApplication()._initial_register = True
-        except:
-            self.video_client.app.infoBox("Error", "Usuario o contraseña incorrecto.")
+        except DSException as e:
+            self.video_client.app.infoBox("Error.", str(e))
             return 
 
         # lanzar la aplicación 
