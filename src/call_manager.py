@@ -109,6 +109,8 @@ class CallManager(object):
             return str(640) + 'x' + str(480)
 
     def set_send_fps(self, fps=25):
+        if fps>60:
+            return
         self._send_fps = int(fps)
         self.client_app.video_client.app.setPollTime(int(1000 // fps))
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
@@ -261,21 +263,26 @@ class CallManager(object):
             # no estoy en llamada, ignoro mensaje
             return 
         
-        self._can_i_resume = False
-        self._pause = True
-        
-        self.client_app.video_client.app.infoBox(
-            "Info", 
-            f"{nick} ha puesto la llamada en hold.", 
-            parent="CallWindow"
-        )
+
+        if not self._pause:
+            self._can_i_resume = False
+            self._pause = True
+            
+            self.client_app.video_client.app.infoBox(
+                "Info", 
+                f"{nick} ha puesto la llamada en hold.", 
+                parent="CallWindow"
+            )
 
     def receive_call_resume(self, nick):
         if not self.in_call():
             # no estoy en llamada, ignoro mensaje
             return 
-        self._pause = False
-        self._can_i_resume = False
+
+        # me había pausado mi peer
+        if self._pause and not self._can_i_resume:
+            self._pause = False
+            self._can_i_resume = False
 
     # getters y setters de atributos
     def set_in_call(self, val):

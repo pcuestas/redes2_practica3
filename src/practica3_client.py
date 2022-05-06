@@ -241,6 +241,12 @@ class VideoClient(object):
         self.app.addButton("Cambiar resolución", self.buttonsCallback)
         self.app.stopTab()
 
+        self.app.startTab("Cambiar FPS")
+        self.app.addLabel("FPS a enviar")
+        self.app.addNumericEntry("input_fps")
+        self.app.addButtons(["Cambiar fps"], self.buttonsCallback)
+        self.app.stopTab()
+
         self.app.startTab("Recurso a enviar")
         self.app.addLabel("c","Select webcam or video to send")
 
@@ -330,6 +336,10 @@ class VideoClient(object):
             elif button == "Cambiar resolución":
                 resolution=self.app.getRadioButton("resolution")
                 self.client_app.call_manager.set_image_resolution(resolution)
+            
+            elif button == "Cambiar fps":
+                fps=int(self.app.getEntry("input_fps"))
+                self.client_app.call_manager.set_send_fps(fps)
 
             
         except P3Exception as e:
