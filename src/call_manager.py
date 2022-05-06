@@ -171,10 +171,9 @@ class CallManager(object):
         self.send_data_socket = None
         self.set_peer(None)
         
-   
     def hold_and_resume_call(self):
-        #resume call 
-        if self._pause and self._can_i_resume:
+        
+        if self._pause and self._can_i_resume: #resume call 
             self._pause = False
             self._can_i_resume = False
             self.client_app.video_client.app.setButton("pause/resume","Pause")
@@ -182,8 +181,7 @@ class CallManager(object):
             #Cuando se pausa el video, vaciar el buffer
             self.call_buffer.empty()
             
-        #pause call
-        elif not self._pause: 
+        elif not self._pause: #pause call
             self._pause = True
             self._can_i_resume = True
             self.client_app.video_client.app.setButton("pause/resume","Resume")
@@ -258,35 +256,27 @@ class CallManager(object):
         self._peer.udp_port = int(udp_port) 
         self.init_call(self._peer, sock)
 
-    def receive_call_denied(self, nick, sock):
-        
+    def receive_call_denied(self, nick, sock):    
         sock.close()
-
         self.set_peer(None)
         self.client_app.video_client.app.infoBox("Info", f"{nick} ha rechazado la llamada.")
 
     def receive_call_busy(self, sock):
-        
         sock.close()
-
         nick = self._peer.nick
         self.set_peer(None)
         self.client_app.video_client.app.infoBox("Info", f"{nick} está ocupado.")
 
     def receive_call_end(self, nick):
         if not self.in_call():
-            # no estoy en llamada, ignoro mensaje
             return 
-        
         self.end_call(False)
         self.client_app.video_client.app.infoBox("Info", f"{nick} ha colgado.")
 
     def receive_call_hold(self, nick):
         if not self.in_call():
-            # no estoy en llamada, ignoro mensaje
             return 
         
-
         if not self._pause:
             self._can_i_resume = False
             self._pause = True
@@ -299,9 +289,7 @@ class CallManager(object):
 
     def receive_call_resume(self, nick):
         if not self.in_call():
-            # no estoy en llamada, ignoro mensaje
             return 
-
         # me había pausado mi peer
         if self._pause and not self._can_i_resume:
             self._pause = False
@@ -324,10 +312,8 @@ class CallManager(object):
         return self._peer
     
     # manejo de intercambio de mensajes con el peer por tcp
-
     def make_call(self, msg, ip, tcp_port,timeout=20):
-        '''
-            Llama a un usuario y gestiona la llamada.
+        ''' Llama a un usuario y gestiona la llamada.
             msg="CALLING nick udpport", 
             ip= la ip del usuario
             tcp_port= el puerto de control del usuario al que se llama
@@ -349,7 +335,6 @@ class CallManager(object):
             raise P3Exception("No se pudo contactar con el usuario.")
 
     def process_listener_message(self, petition, connection_socket=None, addr=None):
-
         print(f"Call manager procesa: '{petition}'")
         try: 
             msg, nick, udp_port = petition.split(' ')
@@ -361,11 +346,8 @@ class CallManager(object):
             pass # ignoramos si el listener recibe otra cosa
 
     def process_response_message(self, petition, connection_socket=None):
-        
         print(f"Call manager procesa: '{petition}'")
-        
         petition_list = petition.split(' ')
-
         try: 
             msg, nick, udp_port = petition_list
 
@@ -382,9 +364,7 @@ class CallManager(object):
                     self.receive_call_busy(connection_socket)
 
     def process_control_message(self, petition):
-        
         print(f"Call manager procesa: '{petition}'")
-        
         petition_list = petition.split(' ')
         try:
             msg, nick = petition_list
@@ -398,7 +378,6 @@ class CallManager(object):
             pass
 
 
-
 class ReceiveVideoThread(TerminatableThread):
     def __init__(self, udp_port, client_app):
         super().__init__()
@@ -409,13 +388,11 @@ class ReceiveVideoThread(TerminatableThread):
         self.fps = 25 # valor inicial, no importa mucho
 
     def run(self):
-
         self.configure_socket()
 
         pause = True
         resolution = b'0x0'
         cummulative_time = 0
-
         while not self.stopped():
             try:
                 self.server_sock.settimeout(1/self.fps)
@@ -471,7 +448,6 @@ class ReceiveVideoThread(TerminatableThread):
 
         self.quit()
 
-
     def set_receive_fps(self, fps):
         self.fps = fps
         self.call_buffer.set_maxsize(int(fps//2)) # 0.5 segundos de vídeo en el buffer
@@ -520,17 +496,14 @@ class ReceiveControlCommandsThread(TerminatableThread):
 
     def run(self):
         self.control_socket.settimeout(0.5)
-        while 1:
+        while not self.stopped():
             try:
                 msg = self.control_socket.recv(1 << 14).decode(encoding="utf-8")
                 if len(msg) > 0:
                     self.call_manager.process_control_message(msg)
             except socket.timeout:
                 pass
-            finally:
-                if self.stopped():
-                    self.quit()
-                    return
+        self.quit()
 
     def quit(self):
         self.control_socket.close()

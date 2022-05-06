@@ -17,7 +17,6 @@ from exceptions import P3Exception
 from call_manager import User
 from util import *
 
-
 MAX_FPS = 60
 CAM_SIZE = (640, 480)
 
@@ -104,7 +103,6 @@ class ClientApplication(object):
         # lanzar la aplicación 
         self.start_after_register()
 
-
     def request_nick_password_and_register(self):
         while True:
             if not self.request_nick_password():
@@ -157,7 +155,6 @@ class ClientApplication(object):
         '''toma un path relativo al directorio de los ficheros de la 
            aplicación de la forma: "/imgs/file.png" y devuelve el path completo'''
         return self.APPFILES_DIR + location
-
 
     def connect(self):
         # Entrada del nick del usuario a conectar    
@@ -310,7 +307,6 @@ class VideoClient(object):
             self.set_video_capture(use_webcam=False,screen_cap=True)
         else:
             self.set_video_capture(use_webcam=False, resource_name=opt)
-        
 
     def update_status_bar(self, resolution, fps):
         self.app.setStatusbar(f"Enviando a resolución {resolution}", 0)
@@ -380,8 +376,6 @@ class VideoClient(object):
 
         self.configure_call_window()
         self.configure_list_users_window()
-        # Barra de estado
-        # Debe actualizarse con información útil sobre la llamada (duración, FPS, etc...)
      
 
     def set_video_capture(self, use_webcam: bool = True, resource_name="videoplayback.mp4", screen_cap=False):
@@ -499,7 +493,6 @@ class VideoClient(object):
               ["        USUARIOS EN EL SERVIDOR"] + listusers
         )
         self.app.showSubWindow("ListUsers")
-        
 
     def stop(self):
         self.app.stop()
