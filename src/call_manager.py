@@ -397,7 +397,7 @@ class ReceiveVideoThread(TerminatableThread):
                     cummulative_time += 1/self.fps
               
 
-            if cummulative_time > 3:
+            if cummulative_time > 5:
                 self.call_manager.end_call(True, message="Se ha cortado la llamada por fallos en la conexión.")
                 self.quit()
                 return 

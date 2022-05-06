@@ -97,7 +97,7 @@ class DSClient():
             query.split(' ') 
             for query in ' '.join(resp_list.split(' ')[2:]).split('#')[:-1]
         ]
-        
+
         # actualizar la cache
         for user in users:
             try:

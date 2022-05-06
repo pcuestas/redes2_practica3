@@ -412,14 +412,17 @@ class VideoClient(object):
             if self.screen_cap:
                 img = ImageGrab.grab() 
                 frame = np.array(img)
+                frame = cv2.resize(frame, CAM_SIZE)
+                cv2_im = frame # para mostrar por pantalla
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # para enviar
             else:
                 # Capturamos un frame de la cámara o del vídeo
                 ret, frame = self.cap.read()
                 if not ret:
                     self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     return 
-            frame = cv2.resize(frame, CAM_SIZE)
-            cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = cv2.resize(frame, CAM_SIZE)
+                cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
 
