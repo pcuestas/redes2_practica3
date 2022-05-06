@@ -1,5 +1,4 @@
 from datetime import timedelta
-from re import I
 import threading
 from tkinter import Image
 from PIL import Image, ImageTk
