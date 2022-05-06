@@ -414,14 +414,14 @@ class VideoClient(object):
                 frame = np.array(img)
                 frame = cv2.resize(frame, CAM_SIZE)
                 cv2_im = frame # para mostrar por pantalla
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # para enviar
+                frame_send = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # para enviar
             else:
                 # Capturamos un frame de la cámara o del vídeo
-                ret, frame = self.cap.read()
+                ret, frame_send = self.cap.read()
                 if not ret:
                     self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     return 
-                frame = cv2.resize(frame, CAM_SIZE)
+                frame = cv2.resize(frame_send, CAM_SIZE)
                 cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
@@ -432,7 +432,7 @@ class VideoClient(object):
             # Aquí tendría que el código que envia el frame a la red
             if self.client_app.call_manager.in_call():
                 encode_param = [cv2.IMWRITE_JPEG_QUALITY, 50]
-                result, encimg = cv2.imencode('.jpg', frame, encode_param)
+                result, encimg = cv2.imencode('.jpg', frame_send, encode_param)
                 if not result:
                     print('Error al codificar imagen')
                 else:
