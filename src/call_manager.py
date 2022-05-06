@@ -320,8 +320,10 @@ class CallManager(object):
 
             self.process_response_message(answer_msg, control_sock)  
 
-        except socket.error:
+        except socket.timeout:
             raise P3Exception("El usuario no ha respondido a la llamada.")
+        except socket.error:
+            raise P3Exception("No se pudo contactar con el usuario.")
 
     def process_listener_message(self, petition, connection_socket=None, addr=None):
 
@@ -388,6 +390,7 @@ class ReceiveVideoThread(TerminatableThread):
         self.configure_socket()
 
         pause = True
+        resolution = b'0x0'
         cummulative_time = 0
 
         while not self.stopped():
@@ -430,16 +433,17 @@ class ReceiveVideoThread(TerminatableThread):
 
                 if self.fps != fps: 
                     self.set_receive_fps(fps)
-                
-                self.client_app.video_client.app.setLabel(
-                    "CallInfo", 
-                    f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.\n"
-                    +f"Tiempo de llamada: {timedelta(seconds=round(time.time()-self.call_manager.init_call_time))}")
     
             except (TypeError):
                 #buffer vacio
                 pause = True
                 pass
+
+            finally:    
+                self.client_app.video_client.app.setLabel(
+                    "CallInfo", 
+                    f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.\n"
+                    +f"Tiempo de llamada: {timedelta(seconds=round(time.time()-self.call_manager.init_call_time))}")
         
         self.quit()
 
