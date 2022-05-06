@@ -92,8 +92,11 @@ class CallManager(object):
     def send_datagram(self, videoframe):
         if self.send_data_socket and not self._pause and self._in_call:
             header = self.build_header()
-            self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
-            self._send_order_number += 1
+            try:
+                self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
+                self._send_order_number += 1
+            except socket.error:
+                pass
 
     def build_header(self):
         'Construye la cabcera y la devuelve como una cadena de bytes'
