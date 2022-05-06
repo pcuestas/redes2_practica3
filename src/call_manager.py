@@ -118,17 +118,13 @@ class CallManager(object):
     def set_send_fps(self, fps=25):
         if fps>MAX_FPS or fps<MIN_FPS:
             self.client_app.video_client.app.infoBox("Error", f"Introduzca un número de fps entre {MIN_FPS} y {MAX_FPS}")
-            return
-        
+            return        
 
-        if self.client_app.video_client.using_webcam:
+        if self.client_app.video_client.using_webcam or self.client_app.video_client.screen_cap:
             self.client_app.video_client.resource_fps = fps
 
         #No podemos mandar más rapido de los fps del recurso
         send_fps = min(fps, self.client_app.video_client.resource_fps)
-
-        if fps > self.client_app.video_client.resource_fps:
-            self.client_app.video_client.app.infoBox("Error", f"El recurso no admite una tasa mayor que {send_fps} fps. Se ha configurado el envío a esa tasa")
 
         #Si queremos mandar a menos frames, que los del recurso
         ratio_fps = self.client_app.video_client.resource_fps / send_fps
@@ -140,7 +136,6 @@ class CallManager(object):
 
         self._send_fps = int(send_fps)
         self.client_app.video_client.app.setPollTime(int(1000 // send_fps))
-
 
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 

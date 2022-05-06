@@ -420,7 +420,7 @@ class VideoClient(object):
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
             self.resource_fps = self.cap.get(cv2.CAP_PROP_FPS)
              
-
+        self.resource_fps = max(self.resource_fps,10)
         self.client_app.call_manager.set_send_fps(fps=self.resource_fps)
      
     # Función que captura el frame a mostrar en cada momento
