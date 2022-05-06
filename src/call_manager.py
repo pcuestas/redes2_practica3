@@ -1,4 +1,4 @@
-from http import client
+from datetime import timedelta
 from re import I
 import threading
 from tkinter import Image
@@ -34,6 +34,7 @@ class CallManager(object):
         self.receive_video_thread = None
         self.receive_control_commands_thread = None
         self.send_data_socket = None
+        self.init_call_time = 0
 
         # usuario con el que se está interaccionando
         self._in_call_mutex = threading.Lock()
@@ -65,7 +66,8 @@ class CallManager(object):
         self.configure_send_socket()
 
         self.set_in_call(True)
-        self.set_peer(peer)
+        self.set_peer(peer)        
+        self.init_call_time = time.time()
 
         # lanzar los hilos de la llamada
         self.receive_video_thread = ReceiveVideoThread(
@@ -80,7 +82,6 @@ class CallManager(object):
         self.receive_control_commands_thread.setDaemon(True)
         self.receive_control_commands_thread.start()
 
-
     def reset_variables(self):
         self.call_buffer.clear()
         self._last_frame_shown = -1
@@ -91,7 +92,6 @@ class CallManager(object):
         self.frames_per_capture = 1
         self.prob_extra_frame = 0
 
-
     ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
         if self.send_data_socket and not self._pause and self._in_call:
@@ -101,8 +101,9 @@ class CallManager(object):
                 self._send_order_number += 1
             except socket.error:
                 pass
+
     def build_header(self):
-        'Construye la cabcera y la devuelve como una cadena de bytes'
+        '''Construye la cabcera y la devuelve como una cadena de bytes'''
         return bytes(str(self._send_order_number)+"#"+str(time.time())+"#" \
                 + self.resolution_str()+"#"+str(self._send_fps)+"#",'utf-8')
 
@@ -144,6 +145,8 @@ class CallManager(object):
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
     def end_call(self, send_end_call=True, message=None):
+        '''termina la llamada'''
+        
         if not self.in_call():
             return
 
@@ -155,12 +158,9 @@ class CallManager(object):
         self.client_app.end_call_window()
 
         if send_end_call:
-            try: 
-                self.send_control_msg(
-                    f"CALL_END {self.client_app.ds_client.nick}"
-                )
-            except P3Exception as e:
-                pass
+            self.send_control_msg(
+                f"CALL_END {self.client_app.ds_client.nick}"
+            )
         
         self.receive_video_thread.end()
         self.receive_video_thread = None
@@ -198,9 +198,10 @@ class CallManager(object):
             self.end_call()
 
     def send_control_msg(self, msg:str):
+        '''envía mensaje de control'''
         try:
             TCP.send(msg, self.receive_control_commands_thread.control_socket)
-        except P3Exception as e:
+        except P3Exception:
             pass
 
     # funciones de recepción de mensajes
@@ -343,8 +344,10 @@ class CallManager(object):
 
             self.process_response_message(answer_msg, control_sock)  
 
-        except socket.error:
+        except socket.timeout:
             raise P3Exception("El usuario no ha respondido a la llamada.")
+        except socket.error:
+            raise P3Exception("No se pudo contactar con el usuario.")
 
     def process_listener_message(self, petition, connection_socket=None, addr=None):
 
@@ -411,6 +414,7 @@ class ReceiveVideoThread(TerminatableThread):
         self.configure_socket()
 
         pause = True
+        resolution = b'0x0'
         cummulative_time = 0
 
         while not self.stopped():
@@ -453,14 +457,19 @@ class ReceiveVideoThread(TerminatableThread):
 
                 if self.fps != fps: 
                     self.set_receive_fps(fps)
-                
-                self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.")
     
             except (TypeError):
                 #buffer vacio
                 pause = True
                 pass
         
+            finally:    
+                self.client_app.video_client.app.setLabel(
+                    "CallInfo", 
+                    f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.\n"
+                    +f"Tiempo de llamada: {timedelta(seconds=round(time.time()-self.call_manager.init_call_time))}")
+
+
         self.quit()
 
 
