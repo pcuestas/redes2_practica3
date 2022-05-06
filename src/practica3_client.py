@@ -14,6 +14,7 @@ from exceptions import P3Exception
 from call_manager import User
 from util import *
 
+
 MAX_FPS = 60
 CAM_SIZE = (640, 480)
 
@@ -413,16 +414,14 @@ class VideoClient(object):
             if self.screen_cap:
                 img = ImageGrab.grab() #x, y, w, h
                 frame = np.array(img)
-                frame = cv2.resize(frame, CAM_SIZE)
-                cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             else:
                 # Capturamos un frame de la cámara o del vídeo
                 ret, frame = self.cap.read()
                 if not ret:
                     self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     return 
-                frame = cv2.resize(frame, CAM_SIZE)
-                cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.resize(frame, CAM_SIZE)
+            cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
 
@@ -477,7 +476,7 @@ class VideoClient(object):
         self.app.stop()
 
 if __name__ == '__main__':
-
+    
     # crear el fichero de media
     MEDIA_DIR = os.path.dirname(__file__) + '/../appfiles/media'
     if not os.path.exists(MEDIA_DIR):

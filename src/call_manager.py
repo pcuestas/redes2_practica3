@@ -5,6 +5,7 @@ from tkinter import Image
 from PIL import Image, ImageTk
 
 import cv2
+from cv2 import resize
 from exceptions import P3Exception
 import numpy as np
 from util import TCP, CircularBuffer, TerminatableThread
@@ -12,6 +13,8 @@ import time
 import socket
 
 HEADER_ITEMS=4
+WIDTH = 640
+HEIGHT = 480
 
 class User(object):
     def __init__(self, nick, ipaddr:str, udp_port:int, tcp_port:int):
@@ -415,6 +418,7 @@ class ReceiveVideoThread(TerminatableThread):
             try:
                 self.call_manager._last_frame_shown, fts, resolution, fps, frame = self.call_buffer.pop()
 
+
                 self.client_app.video_client.app.setImageData("inc_video", frame, fmt='PhotoImage')
 
                 if self.fps != fps: 
@@ -453,8 +457,16 @@ class ReceiveVideoThread(TerminatableThread):
     def insert_in_buffer(self, compressed_frame, order_number:int, timestamp, resolution, fps):
         '''Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'''
         if order_number > self.client_app.call_manager._last_frame_shown:
-        #TODO tener en cuenta la resolución para hacer resize 
+
             decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
+            try:
+                width, height = resolution.decode('utf-8').split('x')
+                width, height = WIDTH, int(WIDTH*int(height)/int(width))
+                self.client_app.video_client.app.setImageSize("inc_video",width, height)
+                decimg = cv2.resize(decimg,(width,height))
+            except:
+                pass # por si la resolución que nos mandan no es correcta
+
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
             self.client_app.call_manager.call_buffer.push((order_number, float(timestamp), resolution, int(fps), img_tk))
