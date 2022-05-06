@@ -1,3 +1,4 @@
+from datetime import timedelta
 from http import client
 from re import I
 import threading
@@ -32,6 +33,7 @@ class CallManager(object):
         self.receive_video_thread = None
         self.receive_control_commands_thread = None
         self.send_data_socket = None
+        self.init_call_time = 0
 
         # usuario con el que se está interaccionando
         self._in_call_mutex = threading.Lock()
@@ -62,6 +64,7 @@ class CallManager(object):
 
         self.set_in_call(True)
         self.set_peer(peer)
+        self.init_call_time = time.time()
 
         # lanzar los hilos de la llamada
         self.receive_video_thread = ReceiveVideoThread(
@@ -146,7 +149,6 @@ class CallManager(object):
         
    
     def hold_and_resume_call(self):
-        #TODO try except para el send
         #resume call 
         if self._pause and self._can_i_resume:
             self._pause = False
@@ -422,7 +424,10 @@ class ReceiveVideoThread(TerminatableThread):
                 if self.fps != fps: 
                     self.set_receive_fps(fps)
                 
-                self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.")
+                self.client_app.video_client.app.setLabel(
+                    "CallInfo", 
+                    f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.\n"
+                    +f"Tiempo de llamada: {timedelta(seconds=round(time.time()-self.call_manager.init_call_time))}")
     
             except (TypeError):
                 #buffer vacio
