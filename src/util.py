@@ -65,7 +65,6 @@ class TCP():
         if timeout_seconds: 
             sock.settimeout(old_timeout)
 
-        print(f"Leído: {len(data)}")
         return data
         
 class CircularBuffer():
@@ -85,7 +84,6 @@ class CircularBuffer():
         elem=(priority,data)
         '''
         if len(self._queue.queue) == self._maxsize:
-            print("Buffer lleno")
             self._queue.get(block=False)
         self._queue.put(elem)
 

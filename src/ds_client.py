@@ -53,7 +53,7 @@ class DSClient():
     def register(self):
         if self.registered:
             self.quit()
-        print(f"Me registro con nick {self.nick}, ip {self.ip_address}, puerto {str(self.client_app._tcp_port)} y protocolo {self.protocol}")
+            
         resp = self.send(" ".join(["REGISTER", self.nick, self.ip_address, str(self.client_app._tcp_port), self.password, self.protocol]))
         self.registered = True
 
@@ -92,13 +92,13 @@ class DSClient():
     def list_users(self):
         '''devuelve una lista con elementos del tipo: [nick, ip_address, port, protocolo]'''
         resp_list = self.send("LIST_USERS")
-        print(resp_list[:16])
+        
         users= [
             query.split(' ') 
             for query in ' '.join(resp_list.split(' ')[2:]).split('#')[:-1]
         ]
-
-
+        
+        # actualizar la cache
         for user in users:
             try:
                 self.contact_book[user[0]]=(user[1],user[2],user[3])

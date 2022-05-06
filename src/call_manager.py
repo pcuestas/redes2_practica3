@@ -180,7 +180,6 @@ class CallManager(object):
     def receive_call(self, ipaddr, sock, nick, udp_port):
         '''Recibo llamada de un usuario'''
         if self.in_call():
-            print("Mando CALL_BUSY")
             TCP.send("CALL_BUSY", sock)
             sock.close()
             return 
@@ -412,7 +411,6 @@ class ReceiveVideoThread(TerminatableThread):
 
             while self.call_buffer.len > (self.fps) > 0:
                 # tenemos más de un segundo para reproducir, podemos desechar frames 
-                print("Quito del buffer, hay demasiados")
                 self.call_buffer.pop()
 
             try:
@@ -473,7 +471,6 @@ class ReceiveVideoThread(TerminatableThread):
       
     def quit(self):
         self.server_sock.close()
-        print("Hilo que recibe acaba")
 
 class ReceiveControlCommandsThread(TerminatableThread):
     def __init__(self, control_socket:socket.socket, call_manager: CallManager):
@@ -497,5 +494,4 @@ class ReceiveControlCommandsThread(TerminatableThread):
 
     def quit(self):
         self.control_socket.close()
-        print("Hilo de recepción de control acaba")
 

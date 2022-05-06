@@ -43,12 +43,11 @@ class ListenerThread(TerminatableThread):
 
             # el call_manager procesa y cierra el socket 
             self.client_app.call_manager.process_listener_message(petition, connection_socket, addr[0])
-            
-        print("Listener sale")
+
         server_socket.close()
     
     def register_with_new_port(self, e:P3Exception):
         print("Listener ha tenido un problema: " + str(e))
         self.client_app._tcp_port = np.random.randint(10000, 11000)
         self.client_app.ds_client.register()
-        print(f"Listener selecciona otro puerto aleatorio: {self.client_app._tcp_port}")
+        print(f"Listener selecciona otro puerto aleatorio para tcp, el otro estaba ocupado. Nuevo puerto: {self.client_app._tcp_port}")

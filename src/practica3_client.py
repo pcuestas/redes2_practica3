@@ -25,7 +25,6 @@ class ClientApplication(object):
 
     def __new__(self):
         if not self._instance:
-            print('Creating')
             self._instance = super(
                 ClientApplication, self).__new__(self)
 
@@ -191,7 +190,6 @@ class ClientApplication(object):
             
     def list_of_users(self):
         users = self.ds_client.list_users()
-        print("número de usuarios leídos:",len(users))
         self.video_client.display_users_list(users) 
 
     
@@ -383,7 +381,7 @@ class VideoClient(object):
         err = False
         try:
             if use_webcam:
-                print("Voy a usar camara")
+                print("Cambio a cámara")
                 self.cap = cv2.VideoCapture(0)
                 if not self.cap.isOpened():
                     err = True
@@ -391,7 +389,7 @@ class VideoClient(object):
                 fps = 25
 
             else:
-                print("Voy a usar video")
+                print("Cambio a video")
                 self.cap = cv2.VideoCapture(self.client_app.file(rute)) 
                 fps = self.cap.get(cv2.CAP_PROP_FPS)
                 fps = min(fps,MAX_FPS)
@@ -412,7 +410,7 @@ class VideoClient(object):
     def capturaVideo(self):
         try:
             if self.screen_cap:
-                img = ImageGrab.grab() #x, y, w, h
+                img = ImageGrab.grab() 
                 frame = np.array(img)
             else:
                 # Capturamos un frame de la cámara o del vídeo
@@ -434,9 +432,10 @@ class VideoClient(object):
                 result, encimg = cv2.imencode('.jpg', frame, encode_param)
                 if not result:
                     print('Error al codificar imagen')
-                self.client_app.call_manager.send_datagram(encimg.tobytes())
+                else:
+                    self.client_app.call_manager.send_datagram(encimg.tobytes())
         except cv2.error as e:
-            print(e)
+            pass
 
     # Establece la resolución de la imagen capturada
     def setImageResolution(self, resolution):        
