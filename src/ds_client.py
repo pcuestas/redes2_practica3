@@ -61,25 +61,21 @@ class DSClient():
         user = None
 
         if nick in self.contact_book.keys():
-            user=self.contact_book[nick]
+            user = self.contact_book[nick]
             not_found = False
 
-            # Ver si la entrada está actualizada
-            try:
+            try: # Ver si la entrada está actualizada
                 TCP.create_socket_and_send(" ",user[0],int(user[1]))
-                
-            except socket.error as e:
+            except socket.error:
                 not_found = True
 
         #entrada inexistente o desactualizada
         if not_found:
             resp = self.send(" ".join(["QUERY", nick]))
             resp = resp.split(' ')[1:] # [nick,ip_adress, port, prootocols]
-
             #update contact book
             self.contact_book[nick]=(resp[1],resp[2],resp[3])
             return resp
-        
        
         return [nick,user[0],user[1],user[2]]
         
