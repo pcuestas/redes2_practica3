@@ -259,21 +259,26 @@ class CallManager(object):
             # no estoy en llamada, ignoro mensaje
             return 
         
-        self._can_i_resume = False
-        self._pause = True
-        
-        self.client_app.video_client.app.infoBox(
-            "Info", 
-            f"{nick} ha puesto la llamada en hold.", 
-            parent="CallWindow"
-        )
+
+        if not self._pause:
+            self._can_i_resume = False
+            self._pause = True
+            
+            self.client_app.video_client.app.infoBox(
+                "Info", 
+                f"{nick} ha puesto la llamada en hold.", 
+                parent="CallWindow"
+            )
 
     def receive_call_resume(self, nick):
         if not self.in_call():
             # no estoy en llamada, ignoro mensaje
             return 
-        self._pause = False
-        self._can_i_resume = False
+
+        # me había pausado mi peer
+        if self._pause and not self._can_i_resume:
+            self._pause = False
+            self._can_i_resume = False
 
     # getters y setters de atributos
     def set_in_call(self, val):
