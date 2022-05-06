@@ -1,4 +1,3 @@
-from datetime import timedelta
 from http import client
 from re import I
 import threading
@@ -16,6 +15,8 @@ import socket
 HEADER_ITEMS=4
 WIDTH = 640
 HEIGHT = 480
+MAX_FPS = 60
+MIN_FPS = 10
 
 class User(object):
     def __init__(self, nick, ipaddr:str, udp_port:int, tcp_port:int):
@@ -33,7 +34,6 @@ class CallManager(object):
         self.receive_video_thread = None
         self.receive_control_commands_thread = None
         self.send_data_socket = None
-        self.init_call_time = 0
 
         # usuario con el que se está interaccionando
         self._in_call_mutex = threading.Lock()
@@ -42,6 +42,8 @@ class CallManager(object):
         self._in_call = False
         self._pause = False
         self._can_i_resume = False
+        self.frames_per_capture = 1
+        self.prob_extra_frame = 0
 
         #gestión de flujo
         self._receive_fps = 0
@@ -64,7 +66,6 @@ class CallManager(object):
 
         self.set_in_call(True)
         self.set_peer(peer)
-        self.init_call_time = time.time()
 
         # lanzar los hilos de la llamada
         self.receive_video_thread = ReceiveVideoThread(
@@ -87,14 +88,20 @@ class CallManager(object):
         self._pause = False
         self._can_i_resume = False
         self._send_order_number = 0
+        self.frames_per_capture = 1
+        self.prob_extra_frame = 0
+
 
     ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
         if self.send_data_socket and not self._pause and self._in_call:
             header = self.build_header()
-            self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
-            self._send_order_number += 1
-
+            try:
+                self.send_data_socket.sendto(header+videoframe,(self._peer.ipaddr, self._peer.udp_port))
+                self._send_order_number += 1
+            except socket.error : 
+                print("FALAAA")
+                pass
     def build_header(self):
         'Construye la cabcera y la devuelve como una cadena de bytes'
         return bytes(str(self._send_order_number)+"#"+str(time.time())+"#" \
@@ -109,10 +116,32 @@ class CallManager(object):
             return str(640) + 'x' + str(480)
 
     def set_send_fps(self, fps=25):
-        if fps>60:
+        if fps>MAX_FPS or fps<MIN_FPS:
+            self.client_app.video_client.app.infoBox("Error", f"Introduzca un número de fps entre {MIN_FPS} y {MAX_FPS}")
             return
-        self._send_fps = int(fps)
-        self.client_app.video_client.app.setPollTime(int(1000 // fps))
+        
+
+        if self.client_app.video_client.using_webcam:
+            self.client_app.video_client.resource_fps = fps
+
+        #No podemos mandar más rapido de los fps del recurso
+        send_fps = min(fps, self.client_app.video_client.resource_fps)
+
+        if fps > self.client_app.video_client.resource_fps:
+            self.client_app.video_client.app.infoBox("Error", f"El recurso no admite una tasa mayor que {send_fps} fps. Se ha configurado el envío a esa tasa")
+
+        #Si queremos mandar a menos frames, que los del recurso
+        ratio_fps = self.client_app.video_client.resource_fps / send_fps
+        self.frames_per_capture = int(ratio_fps)
+        self.prob_extra_frame = ratio_fps - int(ratio_fps)
+
+        print(f"Frames de recurso {self.client_app.video_client.resource_fps } y mando a {send_fps}")
+        print(f"Tengo que quemar {self.frames_per_capture} y prob es {self.prob_extra_frame}")
+
+        self._send_fps = int(send_fps)
+        self.client_app.video_client.app.setPollTime(int(1000 // send_fps))
+
+
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
 
     def set_image_resolution(self, resolution="MEDIUM"):
@@ -151,6 +180,7 @@ class CallManager(object):
         
    
     def hold_and_resume_call(self):
+        #TODO try except para el send
         #resume call 
         if self._pause and self._can_i_resume:
             self._pause = False
@@ -320,10 +350,8 @@ class CallManager(object):
 
             self.process_response_message(answer_msg, control_sock)  
 
-        except socket.timeout:
-            raise P3Exception("El usuario no ha respondido a la llamada.")
         except socket.error:
-            raise P3Exception("No se pudo contactar con el usuario.")
+            raise P3Exception("El usuario no ha respondido a la llamada.")
 
     def process_listener_message(self, petition, connection_socket=None, addr=None):
 
@@ -390,7 +418,6 @@ class ReceiveVideoThread(TerminatableThread):
         self.configure_socket()
 
         pause = True
-        resolution = b'0x0'
         cummulative_time = 0
 
         while not self.stopped():
@@ -433,17 +460,13 @@ class ReceiveVideoThread(TerminatableThread):
 
                 if self.fps != fps: 
                     self.set_receive_fps(fps)
+                
+                self.client_app.video_client.app.setLabel("CallInfo", f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.")
     
             except (TypeError):
                 #buffer vacio
                 pause = True
                 pass
-
-            finally:    
-                self.client_app.video_client.app.setLabel(
-                    "CallInfo", 
-                    f"Recibiendo datos a {self.fps} fps; resolución: {resolution.decode()}.\n"
-                    +f"Tiempo de llamada: {timedelta(seconds=round(time.time()-self.call_manager.init_call_time))}")
         
         self.quit()
 
@@ -510,4 +533,3 @@ class ReceiveControlCommandsThread(TerminatableThread):
 
     def quit(self):
         self.control_socket.close()
-

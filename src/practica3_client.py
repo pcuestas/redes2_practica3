@@ -1,3 +1,5 @@
+
+
 from appJar import gui
 from PIL import Image, ImageTk
 from call_manager import CallManager
@@ -7,6 +9,7 @@ import re
 import numpy as np
 import os
 from PIL import ImageGrab
+import random
 
 import listener
 from ds_client import DSClient, DSException
@@ -212,7 +215,9 @@ class VideoClient(object):
 
         self.cap = None
         self.screen_cap = False 
+        self.resource_fps = 20
         self.CAM_SIZE = (640,480)
+        self.using_webcam = False
 
     def configure_call_window(self):
         self.app.startSubWindow("CallWindow", modal=True)
@@ -364,7 +369,7 @@ class VideoClient(object):
         
         self.set_video_capture(use_webcam=False,resource_name="home_page.gif")
             
-        self.app.setPollTime(20)
+        #self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
 
         # Añadir los botones
@@ -389,21 +394,23 @@ class VideoClient(object):
          
         rute = "/media/"+resource_name
         err = False
+        self.using_webcam = False
         try:
             if use_webcam:
                 print("Cambio a cámara")
                 self.cap = cv2.VideoCapture(0)
+                self.using_webcam = True
                 if not self.cap.isOpened():
                     err = True
                     print("No se pudo abrir la webcam, utilizando vídeo por defecto.")
-                fps = 25
+                    self.using_webcam = False
+                self.resource_fps = 25
 
             else:
                 print("Cambio a video")
                 self.cap = cv2.VideoCapture(self.client_app.file(rute)) 
-                fps = self.cap.get(cv2.CAP_PROP_FPS)
-                fps = min(fps,MAX_FPS)
-                if not fps:
+                self.resource_fps = self.cap.get(cv2.CAP_PROP_FPS)
+                if not self.resource_fps:
                     err = True
         except:
             err = True
@@ -411,10 +418,10 @@ class VideoClient(object):
 
         if err:
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
-            fps = self.cap.get(cv2.CAP_PROP_FPS)
-            fps = max(fps,MAX_FPS)
+            self.resource_fps = self.cap.get(cv2.CAP_PROP_FPS)
+             
 
-        self.client_app.call_manager.set_send_fps(fps=fps)
+        self.client_app.call_manager.set_send_fps(fps=self.resource_fps)
      
     # Función que captura el frame a mostrar en cada momento
     def capturaVideo(self):
@@ -426,8 +433,18 @@ class VideoClient(object):
                 cv2_im = frame # para mostrar por pantalla
                 frame_send = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # para enviar
             else:
-                # Capturamos un frame de la cámara o del vídeo
-                ret, frame_send = self.cap.read()
+                # Capturamos tantos frames como sea necesario para igualar los fps de envio con los fps del recurso
+                ret = None
+                frames_captured=0
+                while frames_captured < self.client_app.call_manager.frames_per_capture:
+                    ret, frame_send = self.cap.read()
+                    frames_captured += 1
+                    print(f"Capturo frame {frames_captured}")
+                
+                if random.uniform(0,1) < self.client_app.call_manager.prob_extra_frame:
+                    print("EXTRAA")
+                    ret, frame_send = self.cap.read()
+
                 if not ret:
                     self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     return 
@@ -502,3 +519,4 @@ if __name__ == '__main__':
     # acciones deberán ser gestionadas desde callbacks y threads
     app.start()
     
+
