@@ -106,6 +106,8 @@ class CallManager(object):
             return str(640) + 'x' + str(480)
 
     def set_send_fps(self, fps=25):
+        if fps>60:
+            return
         self._send_fps = int(fps)
         self.client_app.video_client.app.setPollTime(int(1000 // fps))
         self.client_app.video_client.update_status_bar(self._resolution, self._send_fps)
