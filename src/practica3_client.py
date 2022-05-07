@@ -193,7 +193,6 @@ class ClientApplication(object):
         users = self.ds_client.list_users()
         self.video_client.display_users_list(users) 
 
-    
 
 
 class VideoClient(object):
@@ -317,7 +316,6 @@ class VideoClient(object):
     def buttonsCallback(self, button):
         try:
             if button == "Salir":
-                # Salimos de la aplicación
                 self.client_app.quit()
 
             elif button == "Conectar":
@@ -342,7 +340,6 @@ class VideoClient(object):
             elif button == "Cambiar fps":
                 fps=int(self.app.getEntry("input_fps"))
                 self.client_app.call_manager.set_send_fps(fps)
-
             
         except P3Exception as e:
             self.app.infoBox("Error", e)
@@ -361,12 +358,9 @@ class VideoClient(object):
         self.config_capture_video_settings()
 
     def config_capture_video_settings(self):
-        # Registramos la función de captura de video
-        # Esta misma función también sirve para enviar un vídeo
-        
+        # Registramos la función de captura de video        
         self.set_video_capture(use_webcam=False,resource_name="home_page.gif")
             
-        #self.app.setPollTime(20)
         self.app.registerEvent(self.capturaVideo)
 
         # Añadir los botones
@@ -384,14 +378,12 @@ class VideoClient(object):
             self.screen_cap = True 
             return 
 
-        self.screen_cap = False 
-         
-        rute = "/media/"+resource_name
+        file_name = "/media/"+resource_name
         err = False
+        self.screen_cap = False 
         self.using_webcam = False
         try:
             if use_webcam:
-                print("Cambio a cámara")
                 self.cap = cv2.VideoCapture(0)
                 self.using_webcam = True
                 if not self.cap.isOpened():
@@ -401,8 +393,7 @@ class VideoClient(object):
                 self.resource_fps = 25
 
             else:
-                print("Cambio a video")
-                self.cap = cv2.VideoCapture(self.client_app.file(rute)) 
+                self.cap = cv2.VideoCapture(self.client_app.file(file_name)) 
                 self.resource_fps = self.cap.get(cv2.CAP_PROP_FPS)
                 if not self.resource_fps:
                     err = True
@@ -428,15 +419,13 @@ class VideoClient(object):
                 frame_send = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # para enviar
             else:
                 # Capturamos tantos frames como sea necesario para igualar los fps de envio con los fps del recurso
+                if not self.cap.isOpened():
+                    self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
                 ret = None
-                frames_captured=0
-                while frames_captured < self.client_app.call_manager.frames_per_capture:
+                for _ in range(self.client_app.call_manager.frames_per_capture):
                     ret, frame_send = self.cap.read()
-                    frames_captured += 1
-                    #print(f"Capturo frame {frames_captured}")
-                
-                if random.uniform(0,1) < self.client_app.call_manager.prob_extra_frame:
-                    #print("EXTRAA")
+                if random.random() < self.client_app.call_manager.prob_extra_frame:
                     ret, frame_send = self.cap.read()
 
                 if not ret:
@@ -453,10 +442,8 @@ class VideoClient(object):
             # Aquí tendría que el código que envia el frame a la red
             if self.client_app.call_manager.in_call():
                 encode_param = [cv2.IMWRITE_JPEG_QUALITY, 50]
-                result, encimg = cv2.imencode('.jpg', frame_send, encode_param)
-                if not result:
-                    print('Error al codificar imagen')
-                else:
+                ret, encimg = cv2.imencode('.jpg', frame_send, encode_param)
+                if ret:
                     self.client_app.call_manager.send_datagram(encimg.tobytes())
         except cv2.error as e:
             pass
@@ -477,10 +464,6 @@ class VideoClient(object):
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.CAM_SIZE[1]) 
 
     def display_users_list(self, users):
-        #self.app.replaceAllTableRows(
-        #    "ListUsersTable",
-        #    [["Nick", "IP", "TCP port"]] + users
-        #)
         self.app.clearListBox("ListBoxUsers")
         listusers = []
         for i,s in enumerate(users):

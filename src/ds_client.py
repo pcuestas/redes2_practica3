@@ -16,7 +16,6 @@ class DSClient():
 
         self.nick = None
         self.password = None
-        self.client_app = client_app
 
         self.contact_book = {}
         
@@ -30,6 +29,7 @@ class DSClient():
         self.registered = False
         
     def send(self, msg: str) -> str:
+        '''envía un mensaje al servidor y controla el posible error de retorno. Si va bien devuelve la cadena d'''
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 client_socket.settimeout(15)
@@ -43,7 +43,7 @@ class DSClient():
                 elif response[:3] == "BYE":
                     return None
                 else:
-                    raise DSException(response[4:])
+                    raise DSException(response[4:] if len(response) > 4 else "El servidor DS ha fallado.")
         except socket.error:
             raise DSException("No se pudo conectar con el servidor DS.")
 

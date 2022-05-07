@@ -4,7 +4,6 @@ from tkinter import Image
 from PIL import Image, ImageTk
 
 import cv2
-from cv2 import resize
 from exceptions import P3Exception
 import numpy as np
 from util import TCP, CircularBuffer, TerminatableThread
@@ -91,8 +90,8 @@ class CallManager(object):
         self.frames_per_capture = 1
         self.prob_extra_frame = 0
 
-    ## Cada pollTime se ejecuta. Mandar fotogramas al peer
     def send_datagram(self, videoframe):
+        '''Cada pollTime se llama. Mandar fotogramas al peer'''
         if self.send_data_socket and not self._pause and self._in_call:
             header = self.build_header()
             try:
@@ -115,7 +114,7 @@ class CallManager(object):
             return str(640) + 'x' + str(480)
 
     def set_send_fps(self, fps=25):
-        if fps>MAX_FPS or fps<MIN_FPS:
+        if fps > MAX_FPS or fps < MIN_FPS:
             self.client_app.video_client.app.infoBox("Error", f"Introduzca un número de fps entre {MIN_FPS} y {MAX_FPS}", parent="CallWindow")
             return        
 
@@ -129,9 +128,6 @@ class CallManager(object):
         ratio_fps = self.client_app.video_client.resource_fps / send_fps
         self.frames_per_capture = int(ratio_fps)
         self.prob_extra_frame = ratio_fps - int(ratio_fps)
-
-        #print(f"Frames de recurso {self.client_app.video_client.resource_fps } y mando a {send_fps}")
-        #print(f"Tengo que quemar {self.frames_per_capture} y prob es {self.prob_extra_frame}")
 
         self._send_fps = int(send_fps)
         self.client_app.video_client.app.setPollTime(int(1000 // send_fps))
@@ -150,11 +146,10 @@ class CallManager(object):
             return
 
         self.set_in_call(False)
+        self.client_app.end_call_window()
 
         if message: 
             self.client_app.video_client.app.infoBox("Info", message)
-
-        self.client_app.end_call_window()
 
         if send_end_call:
             self.send_control_msg(
@@ -172,7 +167,7 @@ class CallManager(object):
         self.set_peer(None)
         
     def hold_and_resume_call(self):
-        
+        '''para o continua la llamada'''
         if self._pause and self._can_i_resume: #resume call 
             self._pause = False
             self._can_i_resume = False
@@ -188,7 +183,7 @@ class CallManager(object):
             self.send_control_msg(f"CALL_HOLD {self.client_app.ds_client.nick}")
 
     def configure_send_socket(self):
-        self.send_data_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        self.send_data_socket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 
     def quit(self):
         if self.in_call():
@@ -211,9 +206,8 @@ class CallManager(object):
 
         nick, nickaddr, tcp_port, protocol = self.client_app.ds_client.query(nick)
         
-        if nickaddr != ipaddr:
-            print(f"Fallan ips {nickaddr}=={ipaddr}")
-            #TODO return 
+        if nickaddr != ipaddr:pass
+            # return -- está comentado porque dependiendo del ordenador esta comprobación puede fallar aunque el usuario sea honesto
 
         try:
             if self.client_app.video_client.app.questionBox(
@@ -245,10 +239,9 @@ class CallManager(object):
             self.set_peer(None)
             self.client_app.video_client.app.infoBox("Info", f"No se pudo conectar con {peer.nick}.\n {e}")
     
-    def call_accepted(self, sock, udp_port):
+    def receive_call_accepted(self, sock, udp_port):
         '''Me han aceptado llamada'''
-        if self.in_call():
-            # para evitar errores
+        if self.in_call(): # para evitar errores
             TCP.send("CALL_BUSY", sock)
             sock.close()
             return 
@@ -290,7 +283,7 @@ class CallManager(object):
     def receive_call_resume(self, nick):
         if not self.in_call():
             return 
-        # me había pausado mi peer
+        # solo puedo continuar si me ha pausado mi peer
         if self._pause and not self._can_i_resume:
             self._pause = False
             self._can_i_resume = False
@@ -335,7 +328,7 @@ class CallManager(object):
             raise P3Exception("No se pudo contactar con el usuario.")
 
     def process_listener_message(self, petition, connection_socket=None, addr=None):
-        print(f"Call manager procesa: '{petition}'")
+        '''procesa una posible llamada'''
         try: 
             msg, nick, udp_port = petition.split(' ')
 
@@ -346,13 +339,12 @@ class CallManager(object):
             pass # ignoramos si el listener recibe otra cosa
 
     def process_response_message(self, petition, connection_socket=None):
-        print(f"Call manager procesa: '{petition}'")
+        '''procesa un mensaje que responde a CALLING...'''
         petition_list = petition.split(' ')
         try: 
             msg, nick, udp_port = petition_list
-
             if msg == "CALL_ACCEPTED":
-                self.call_accepted(connection_socket, udp_port)
+                self.receive_call_accepted(connection_socket, udp_port)
         except ValueError:
             try:
                 msg, nick = petition_list
@@ -364,7 +356,7 @@ class CallManager(object):
                     self.receive_call_busy(connection_socket)
 
     def process_control_message(self, petition):
-        print(f"Call manager procesa: '{petition}'")
+        '''procesa un mensaje de control durante una llamada'''
         petition_list = petition.split(' ')
         try:
             msg, nick = petition_list
@@ -379,6 +371,7 @@ class CallManager(object):
 
 
 class ReceiveVideoThread(TerminatableThread):
+    '''Hilo que recibe y reproduce los frames de una llamada'''
     def __init__(self, udp_port, client_app):
         super().__init__()
         self.server_port = udp_port
@@ -471,7 +464,6 @@ class ReceiveVideoThread(TerminatableThread):
     def insert_in_buffer(self, compressed_frame, order_number:int, timestamp, resolution, fps):
         '''Inserta en el buffer una tupla (n_orden,frame descompriido) mientras no sea un frame antiguo'''
         if order_number > self.client_app.call_manager._last_frame_shown:
-
             decimg = cv2.imdecode(np.frombuffer(compressed_frame,np.uint8), 1)
             try:
                 width, height = resolution.decode('utf-8').split('x')
@@ -480,7 +472,6 @@ class ReceiveVideoThread(TerminatableThread):
                 decimg = cv2.resize(decimg,(width,height))
             except:
                 pass # por si la resolución que nos mandan no es correcta
-
             cv2_im = cv2.cvtColor(decimg,cv2.COLOR_BGR2RGB)
             img_tk = ImageTk.PhotoImage(Image.fromarray(cv2_im))
             self.client_app.call_manager.call_buffer.push((order_number, float(timestamp), resolution, int(fps), img_tk))
@@ -489,6 +480,7 @@ class ReceiveVideoThread(TerminatableThread):
         self.server_sock.close()
 
 class ReceiveControlCommandsThread(TerminatableThread):
+    '''Hilo que recibe los comandos de control durante la llamada.'''
     def __init__(self, control_socket:socket.socket, call_manager: CallManager):
         super().__init__()
         self.control_socket = control_socket
