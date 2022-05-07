@@ -18,6 +18,7 @@ from call_manager import User
 from util import *
 
 MAX_FPS = 60
+MIN_FPS = 10
 CAM_SIZE = (640, 480)
 
 class ClientApplication(object):
@@ -377,7 +378,6 @@ class VideoClient(object):
         self.configure_call_window()
         self.configure_list_users_window()
      
-
     def set_video_capture(self, use_webcam: bool = True, resource_name="videoplayback.mp4", screen_cap=False):
 
         if screen_cap:
@@ -414,7 +414,7 @@ class VideoClient(object):
             self.cap = cv2.VideoCapture(self.client_app.file("/media/videoplayback.mp4"))
             self.resource_fps = self.cap.get(cv2.CAP_PROP_FPS)
              
-        self.resource_fps = max(self.resource_fps,10)
+        self.resource_fps = min(max(self.resource_fps,MIN_FPS), MAX_FPS)
         self.client_app.call_manager.set_send_fps(fps=self.resource_fps)
      
     # Función que captura el frame a mostrar en cada momento
@@ -433,10 +433,10 @@ class VideoClient(object):
                 while frames_captured < self.client_app.call_manager.frames_per_capture:
                     ret, frame_send = self.cap.read()
                     frames_captured += 1
-                    print(f"Capturo frame {frames_captured}")
+                    #print(f"Capturo frame {frames_captured}")
                 
                 if random.uniform(0,1) < self.client_app.call_manager.prob_extra_frame:
-                    print("EXTRAA")
+                    #print("EXTRAA")
                     ret, frame_send = self.cap.read()
 
                 if not ret:

@@ -116,7 +116,7 @@ class CallManager(object):
 
     def set_send_fps(self, fps=25):
         if fps>MAX_FPS or fps<MIN_FPS:
-            self.client_app.video_client.app.infoBox("Error", f"Introduzca un número de fps entre {MIN_FPS} y {MAX_FPS}")
+            self.client_app.video_client.app.infoBox("Error", f"Introduzca un número de fps entre {MIN_FPS} y {MAX_FPS}", parent="CallWindow")
             return        
 
         if self.client_app.video_client.using_webcam or self.client_app.video_client.screen_cap:
