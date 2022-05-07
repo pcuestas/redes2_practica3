@@ -1,7 +1,7 @@
-from queue import PriorityQueue
+from queue import PriorityQueue, Empty
 import threading
 import socket
-from exceptions import P3Exception, SocketError
+from exceptions import SocketError
 
 #hilos 
 class TerminatableThread(threading.Thread):
@@ -84,7 +84,10 @@ class CircularBuffer():
         elem=(priority,data)
         '''
         if len(self._queue.queue) == self._maxsize:
-            self._queue.get(block=False)
+            try:
+                self._queue.get(block=False)
+            except Empty:
+                pass 
         self._queue.put(elem)
 
     def pop(self):
